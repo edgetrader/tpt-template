@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help='also score files in subfolders')
     p.add_argument('--pattern', default='*', metavar='GLOB',
                    help='only files matching this pattern (default: every Excel file)')
+    p.add_argument('--gp-map', default=None, help='CSV of pattern,GP name to group funds by GP')
     p.add_argument('--csv', action='store_true', help='also write summary.csv')
     p.add_argument('--no-excel', action='store_true', help='skip the Excel workbook')
     p.add_argument('--no-html', action='store_true', help='skip the HTML summary')
@@ -155,6 +156,15 @@ def run(args=None) -> int:
     }
 
     outputs = {'summary': write_summary_xlsx(os.path.join(outdir, 'summary.xlsx'), scores, cfg, run_info)}
+    from .reporters.management import (GP_MAP_NAME, load_gp_map, previous_stats,
+                                       write_management, write_stats)
+    gp_map = load_gp_map([opts.gp_map, os.path.join(os.path.abspath(opts.input) if os.path.isdir(opts.input)
+                                                   else os.path.dirname(os.path.abspath(opts.input)), GP_MAP_NAME),
+                          os.path.join(APP_DIR, GP_MAP_NAME)])
+    prev = previous_stats(outdir, run_info['folder'])
+    outputs['management'] = write_management(os.path.join(outdir, 'management_summary.html'),
+                                             scores, cfg, run_info, gp_map, prev)
+    write_stats(outdir, scores, run_info)
     outputs['usable'] = write_usable_list(os.path.join(outdir, 'accepted_files.txt'), scores)
     if opts.csv:
         outputs['csv'] = write_csv(os.path.join(outdir, 'summary.csv'), scores)

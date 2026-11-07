@@ -14,6 +14,8 @@ it, in a timestamped folder holding:
 
 | File | What it is |
 | --- | --- |
+| `management_summary.html` | One page for management: usable %, right first time, average score and files to be resent, each with the change since the last run over the same folder; problems in business terms; results by fund (or by GP with a `gp_map.csv`); the files to be resent with what to ask the GP |
+| `run_stats.json` | The run's figures, read by the next run for the comparison |
 | `TPT_scorecards.xlsx` | Run summary, gate reference, dimension scores, check matrix, issue log, feedback, and one scorecard sheet per file |
 | `run_summary.html` | One-page summary for management, with a gate reference. Print it to PDF |
 | `summary.xlsx` | One sheet: the summary table with a Remarks column, and the gate codes explained above it |
@@ -56,6 +58,14 @@ chained into a pipeline.
 
 The V7 workbook is found automatically when it sits in `templates/` next to
 the submissions folder. Otherwise pass `--template`.
+
+
+### Grouping the management page by GP
+
+Copy `gp_map.example.csv` to `gp_map.csv`, either in the input folder or in `app/`, or pass
+`--gp-map path.csv`. Each row is `pattern,GP name`; the pattern is matched against the fund ID,
+fund name and file name, with `*` and `?` as wildcards, and the first match wins. Without a
+map the page groups by fund name.
 
 ## How the score is built
 
@@ -154,7 +164,7 @@ settings that produced it.
 
 ```
 python tests/make_test_data.py      # build the fixtures (optional; the tests do it)
-python tests/test_tpt_score.py      # 82 tests
+python tests/test_tpt_score.py      # 87 tests
 ```
 
 `tests/data/` holds 33 fixtures: one clean file that scores exactly 100.0, one
@@ -198,6 +208,7 @@ tpt_score/
   util.py               value parsing, check digits, reference lists
   scorer.py             weights, floors, gates, bands
   remarks.py            plain-language remarks and the gate reference table
+  reporters/management.py  the management page and run_stats.json
   profile.py            per-column data-type mismatches and date formats
   checks/               the 24 checks, one module per dimension
   reporters/            Excel workbook, HTML summary, CSV, console recap

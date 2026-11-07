@@ -813,5 +813,58 @@ class TestRemarks(unittest.TestCase):
             self.assertIn('not V7', page)
 
 
+class TestManagementSummary(unittest.TestCase):
+    """The one-page management summary."""
+
+    def setUp(self):
+        self.out = tempfile.mkdtemp(prefix='tpt_mgmt_')
+        self.addCleanup(shutil.rmtree, self.out, ignore_errors=True)
+
+    def _run(self, *extra):
+        cli.run(['--in', DATA, '--out', self.out, '--template', TEMPLATE, '--quiet'] + list(extra))
+        runs = sorted(d for d in os.listdir(self.out) if d.startswith('run_'))
+        return os.path.join(self.out, runs[-1])
+
+    def test_page_and_stats_are_written(self):
+        d = self._run()
+        page = open(os.path.join(d, 'management_summary.html'), encoding='utf-8').read()
+        for text in ('Usable files', 'Right first time', 'What is holding files back',
+                     'To be resent by the GP', 'no earlier run to compare'):
+            self.assertIn(text, page)
+        self.assertNotIn('<script', page.lower())
+        stats = json.load(open(os.path.join(d, 'run_stats.json'), encoding='utf-8'))
+        self.assertEqual(stats['kpis']['files'], len(stats['files']))
+
+    def test_second_run_compares_with_the_first(self):
+        import time
+        self._run()
+        time.sleep(1.1)
+        d = self._run()
+        page = open(os.path.join(d, 'management_summary.html'), encoding='utf-8').read()
+        self.assertIn('unchanged since last run', page)
+        self.assertIn('also failed last run', page)
+
+    def test_every_check_and_gate_has_a_theme(self):
+        from tpt_score.reporters.management import CHECK_THEME, GATE_THEME, THEME_LABEL
+        self.assertEqual(set(CHECK_THEME), set(CHECKS))
+        for theme in list(CHECK_THEME.values()) + list(GATE_THEME.values()):
+            self.assertIn(theme, THEME_LABEL)
+
+    def test_gp_map_groups_funds(self):
+        path = os.path.join(self.out, 'gp.csv')
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write('pattern,gp\n*,Example GP\n')
+        d = self._run('--gp-map', path)
+        page = open(os.path.join(d, 'management_summary.html'), encoding='utf-8').read()
+        self.assertIn('By GP, weakest first', page)
+        self.assertIn('Example GP', page)
+
+    def test_main_problem_of_a_wrong_template_file(self):
+        from tpt_score.reporters.management import main_problem
+        self.assertEqual(main_problem(score('g4_v6_template.xlsx')), 'template')
+        self.assertEqual(main_problem(score('m1_two_sheets.xlsx')), 'tables')
+        self.assertEqual(main_problem(score('g1_corrupt.xlsx')), 'unusable')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -1,0 +1,6 @@
+pattern,gp
+# Copy to gp_map.csv (here or in the input folder) to group the management page by GP.
+# A pattern is matched against the fund ID, fund name and file name; * and ? are wildcards.
+SYNPEFOF*,Meridian Capital
+*Aqueduct*,Aqueduct Partners
+TPT_V7_SYN_0??_*_REDEBT.xlsx,Cardinal Real Estate

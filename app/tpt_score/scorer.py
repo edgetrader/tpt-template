@@ -1,6 +1,7 @@
 """Turn check results into a 0-100 score, a rating and a reason."""
 from __future__ import annotations
 
+import collections
 import datetime as dt
 import os
 from dataclasses import dataclass, field as dc_field
@@ -259,8 +260,21 @@ def combine(results, cfg: Config):
 
 
 def _first_value(ctx: Context, token: str) -> str:
-    for row in ctx.rows[:5]:
+    """The value a fund-level field holds on most rows.
+
+    Taking the first row was fooled by a stray flag row (``M``) or a repeated
+    label row left in the body, so the most common value wins instead, and
+    values that are a template label or a single code letter are skipped.
+    """
+    from .rules import normalise
+    labels = set(ctx.fields.by_name)
+    seen = collections.Counter()
+    for row in ctx.rows:
         v = ctx.value(row, token)
-        if v is not None and str(v).strip():
-            return str(v).strip()
-    return ''
+        t = '' if v is None else str(v).strip()
+        if len(t) < 3 or normalise(t) in labels or t.lower() in ('text', 'n/a', 'none', 'null'):
+            continue
+        if t.lower().startswith(('name of the', 'portfolio identifying')):
+            continue
+        seen[t] += 1
+    return seen.most_common(1)[0][0] if seen else ''
