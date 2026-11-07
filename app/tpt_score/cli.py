@@ -107,6 +107,11 @@ def resolve_template(cfg: Config, given: str, input_path: str) -> str:
 
 
 def run(args=None) -> int:
+    # openpyxl warns about Excel features it does not read (data validation,
+    # conditional formats, unknown extensions). They say nothing about the data,
+    # so they are silenced; real problems still surface as errors.
+    import warnings
+    warnings.filterwarnings('ignore')
     opts = build_parser().parse_args(args)
     started = dt.datetime.now()
 

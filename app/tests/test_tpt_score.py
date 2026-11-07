@@ -61,6 +61,12 @@ TEMPLATE = os.environ.get('TPT_TEMPLATE') or _find(
 SAMPLES = os.environ.get('TPT_SAMPLES') or _find_samples()
 
 _FIELDS = None
+
+
+def _read(path, encoding='utf-8'):
+    """A file's text, with the handle closed (no ResourceWarning)."""
+    with open(path, encoding=encoding) as fh:
+        return fh.read()
 _CFG = Config()
 
 
@@ -76,6 +82,14 @@ def score(name, cfg=None):
 
 
 def setUpModule():
+    import contextlib
+    import io
+    import warnings
+    warnings.simplefilter('ignore')
+    # Deliberate error cases print to stderr; keep the test output clean.
+    global _STDERR
+    _STDERR = contextlib.redirect_stderr(io.StringIO())
+    _STDERR.__enter__()
     # A settings file on the developer's machine must not leak into the tests.
     from tpt_score import settings as _settings
     _settings.DEFAULT_SETTINGS = os.path.join(HERE, 'no-such-settings.yaml')
@@ -88,6 +102,14 @@ def setUpModule():
 
 
 # --------------------------------------------------------------------------- units
+def tearDownModule():
+    if _STDERR is not None:
+        _STDERR.__exit__(None, None, None)
+
+
+_STDERR = None
+
+
 class TestValueParsing(unittest.TestCase):
     def test_numbers(self):
         cases = [
@@ -806,12 +828,12 @@ class TestRemarks(unittest.TestCase):
         scores = [self._score('clean.xlsx'), self._score('g4_v6_template.xlsx')]
         with tempfile.TemporaryDirectory() as d:
             write_csv(os.path.join(d, 's.csv'), scores)
-            rows = list(csv.DictReader(open(os.path.join(d, 's.csv'), encoding='utf-8-sig')))
+            rows = list(csv.DictReader(_read(os.path.join(d, 's.csv'), 'utf-8-sig').splitlines()))
             self.assertIn('remarks', rows[0])
             self.assertIn('date_formats', rows[0])
             self.assertIn('missing_columns', rows[0])
             write_html(os.path.join(d, 'r.html'), scores, self.cfg, {})
-            page = open(os.path.join(d, 'r.html'), encoding='utf-8').read()
+            page = _read(os.path.join(d, 'r.html'))
             self.assertIn('Gates: hard rules', page)
             self.assertIn('not V7', page)
 
@@ -830,12 +852,12 @@ class TestManagementSummary(unittest.TestCase):
 
     def test_page_and_stats_are_written(self):
         d = self._run()
-        page = open(os.path.join(d, 'management_summary.html'), encoding='utf-8').read()
+        page = _read(os.path.join(d, 'management_summary.html'))
         for text in ('Usable files', 'Right first time', 'What is holding files back',
                      'To be resent by the GP', 'no earlier run to compare'):
             self.assertIn(text, page)
         self.assertNotIn('<script', page.lower())
-        stats = json.load(open(os.path.join(d, 'run_stats.json'), encoding='utf-8'))
+        stats = json.loads(_read(os.path.join(d, 'run_stats.json')))
         self.assertEqual(stats['kpis']['files'], len(stats['files']))
 
     def test_second_run_compares_with_the_first(self):
@@ -843,7 +865,7 @@ class TestManagementSummary(unittest.TestCase):
         self._run()
         time.sleep(1.1)
         d = self._run()
-        page = open(os.path.join(d, 'management_summary.html'), encoding='utf-8').read()
+        page = _read(os.path.join(d, 'management_summary.html'))
         self.assertIn('unchanged since last run', page)
         self.assertIn('also failed last run', page)
 
@@ -858,7 +880,7 @@ class TestManagementSummary(unittest.TestCase):
         with open(path, 'w', encoding='utf-8') as fh:
             fh.write('pattern,gp\n*,Example GP\n')
         d = self._run('--gp-map', path)
-        page = open(os.path.join(d, 'management_summary.html'), encoding='utf-8').read()
+        page = _read(os.path.join(d, 'management_summary.html'))
         self.assertIn('By GP, weakest first', page)
         self.assertIn('Example GP', page)
 
@@ -940,7 +962,7 @@ class TestFundReference(unittest.TestCase):
         self.assertIn('GP name', cells)
         self.assertIn('NOT IN FUND REFERENCE', cells)
         self.assertTrue(any(c.startswith('FUND NOT IN FUND REFERENCE') for c in cells))
-        page = open(os.path.join(out, 'management_summary.html'), encoding='utf-8').read()
+        page = _read(os.path.join(out, 'management_summary.html'))
         self.assertIn('Funds not found in the fund reference', page)
         self.assertIn('By GP, weakest first', page)
 
