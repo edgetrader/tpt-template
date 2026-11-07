@@ -160,7 +160,7 @@ def _run_summary(ws, scores, cfg, run_info):
     r += 1
     for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
         find = column_findings(s)
-        row = s.as_summary_row()[:16] + [s.sheet] + [bullets(find[k], 15 if k == 'dates' else 12)
+        row = s.as_summary_row()[:15] + [s.sheet] + [bullets(find[k], 15 if k == 'dates' else 12)
                                                        for k in FINDING_KEYS] + [s.remarks]
         for i, v in enumerate(row, start=1):
             c = ws.cell(r, i, v)

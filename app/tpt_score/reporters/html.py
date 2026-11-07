@@ -176,7 +176,7 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
                     if items:
                         ok = dates_standard(s)
                         bad = [i for i, c in zip(items, s.date_formats) if not c[4]]
-                        text = ('all date columns use one standard format: %s'
+                        text = ('all date columns use %s'
                                 % html.escape(s.date_formats[0][1][0][0]) if ok
                                 else html.escape('; '.join(bad[:4])) +
                                 (' and %d more' % (len(bad) - 4) if len(bad) > 4 else ''))

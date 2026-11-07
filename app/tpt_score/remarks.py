@@ -105,7 +105,7 @@ def _date_item(col) -> str:
 
 
 def dates_standard(fs) -> bool:
-    """True when every date column uses one standard format (ISO text or Excel dates)."""
+    """True when every date column is written yyyy-mm-dd, the format V7 asks for."""
     return bool(fs.date_formats) and all(c[4] for c in fs.date_formats)
 
 

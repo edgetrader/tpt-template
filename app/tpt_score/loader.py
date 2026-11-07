@@ -8,6 +8,7 @@ charge for it.
 """
 from __future__ import annotations
 
+import datetime as dt
 import os
 import re
 from dataclasses import dataclass, field as dc_field
@@ -55,6 +56,9 @@ class Table:
     leading_blank_cols: int = 0
     trailing_blank_cols: int = 0
     extra_tables: List[str] = dc_field(default_factory=list)   # other TPT tables in the workbook
+    cell_formats: dict = dc_field(default_factory=dict)         # (grid row, grid col) -> number format
+    row_source: List[int] = dc_field(default_factory=list)      # grid row of each position row
+    col_offset: int = 0                                          # grid column of the first table column
 
     @property
     def at_origin(self) -> bool:
@@ -149,7 +153,17 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
 
     try:
         ws, sheet_name, sheet_note, other_sheets = _pick_sheet(wb, fields)
-        grid = [list(r) for r in ws.iter_rows(values_only=True)]
+        # Values, plus the display format of every real date cell: the report
+        # shows dates as the GP formatted them (yyyy-mm-dd, dd/mm/yyyy ...).
+        grid, cell_formats = [], {}
+        for i, cells in enumerate(ws.iter_rows()):
+            vals = []
+            for j, c in enumerate(cells):
+                v = c.value
+                vals.append(v)
+                if isinstance(v, (dt.date, dt.datetime)):
+                    cell_formats[(i, j)] = c.number_format
+            grid.append(vals)
 
         hidden_rows = sum(1 for d in ws.row_dimensions.values() if d.hidden)
         hidden_cols = sum(1 for d in ws.column_dimensions.values() if d.hidden)
@@ -180,7 +194,7 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
     table = Table(header=[], rows=[], sheet=sheet_name,
                   sheets_available=sheets_available, hidden_rows=hidden_rows,
                   hidden_cols=hidden_cols, merged_cells=merged,
-                  formula_cells=formula_cells)
+                  formula_cells=formula_cells, cell_formats=cell_formats)
     if sheet_note:
         table.note(sheet_note)
     for other in other_sheets:
@@ -216,6 +230,7 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
         table.note('table starts in column %s, not column A' % _col_letter(best_first + 1))
         table.leading_blank_cols = best_first
 
+    table.col_offset = best_first
     header = grid[best_i][best_first:]
     # Trim trailing columns that are empty in the header and in every row.
     body_raw = [r[best_first:] for r in grid[best_i + 1:]]
@@ -280,6 +295,7 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
             table.note('row dropped as a section label: %r' % first_text[:40])
             continue
         body.append(row)
+        table.row_source.append(best_i + 1 + idx)
 
     if blank_runs:
         table.note('%d blank rows removed from the table body' % blank_runs)

@@ -629,6 +629,13 @@ class TestEndToEndRun(unittest.TestCase):
                      'Wrong data type', 'Date formats (date columns)', 'Remarks'):
             self.assertIn(head, cells)
         self.assertIn('Column findings', wb.sheetnames)
+        rows = [[c.value for c in r] for r in wb.active.iter_rows()]
+        head = next(r for r in rows if r[0] == 'File')
+        body = [r for r in rows[rows.index(head) + 1:] if r[0]]
+        self.assertEqual(len([h for h in head if h]), len(body[0]))
+        dates = [r[head.index('Date formats (date columns)')] for r in body
+                 if r[head.index('Date formats (date columns)')]]
+        self.assertTrue(dates and all('yyyy' in d or 'mm' in d for d in dates))
 
     def test_workbook_has_the_expected_sheets(self):
         import openpyxl
@@ -802,8 +809,27 @@ class TestRemarks(unittest.TestCase):
         mixed = self._score('t2_mixed_date_formats.xlsx')
         self.assertFalse(dates_standard(mixed))
         formats = {f for col in mixed.date_formats for f, _ in col[1]}
-        self.assertIn('DD/MM/YYYY', formats)
-        self.assertIn('YYYY-MM-DD', formats)
+        self.assertIn('dd/mm/yyyy', formats)
+        self.assertIn('yyyy-mm-dd', formats)
+
+    def test_excel_date_cells_report_their_display_format(self):
+        import datetime as _dt
+        import openpyxl
+        from tpt_score.profile import clean_number_format
+        self.assertEqual(clean_number_format('yyyy\\-mm\\-dd;@'), 'yyyy-mm-dd')
+        self.assertEqual(clean_number_format('[$-409]dd/mm/yyyy'), 'dd/mm/yyyy')
+        path = os.path.join(self.out_dir, 'dates.xlsx')
+        wb = openpyxl.load_workbook(os.path.join(DATA, 'clean.xlsx'))
+        ws = wb.active
+        col = next(c.column for c in ws[1] if str(c.value).startswith('6_'))
+        for r in range(2, ws.max_row + 1):
+            ws.cell(r, col).value = _dt.datetime(2026, 9, 30)
+            ws.cell(r, col).number_format = 'dd/mm/yyyy' if r == 2 else 'yyyy-mm-dd'
+        wb.save(path)
+        fs = score_file(path, fields(), _CFG)
+        col6 = next(c for c in fs.date_formats if c[0].startswith('6'))
+        self.assertEqual(dict(col6[1]), {'yyyy-mm-dd': ws.max_row - 2, 'dd/mm/yyyy': 1})
+        self.assertFalse(col6[4])
 
     def test_accepted_files_list_has_full_paths(self):
         cli.run(['--in', DATA, '--out', self.out_dir, '--template', TEMPLATE, '--no-timestamp', '--quiet'])
