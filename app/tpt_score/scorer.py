@@ -100,7 +100,7 @@ class FileScore:
         return sorted(bad, key=lambda c: -c.points_lost)[:5]
 
     def as_summary_row(self) -> List[Any]:
-        return [self.filename, self.gp_name, self.fund_name or self.fund_id, self.fund_ref_label,
+        return [self.filename, self.gp_name, self.ref_fund, self.fund_ref_label,
                 round(self.score, 1), self.rating, self.version, self.positions,
                 self.mapped_columns,
                 round(self.dimensions['structure'].score, 1) if self.dimensions else '',

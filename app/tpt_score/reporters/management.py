@@ -296,15 +296,12 @@ def write_management(path: str, scores: List[FileScore], cfg, run_info: dict,
            % (html.escape(str(run_info.get('started', ''))), k['files'])]
     line = headline(k, theme_files, theme_blocking, prev)
     if any(s.fund_ref_status for s in scores):
-        lost = {(s.fund_name or s.fund_id or '') for s in scores
-                if s.fund_ref_status in ('not found', 'ambiguous', 'no name')}
         nfiles = sum(1 for s in scores if s.fund_ref_status in ('not found', 'ambiguous', 'no name'))
-        if lost:
-            line += (' <span class="down">%d fund name%s (%d file%s) could not be matched to a GP '
-                     'in the fund reference.</span>' % (len(lost), '' if len(lost) == 1 else 's',
-                                                       nfiles, '' if nfiles == 1 else 's'))
+        if nfiles:
+            line += (' <span class="down">%d file%s could not be matched to a GP: the fund in the '
+                     'file name is not in the fund reference.</span>' % (nfiles, '' if nfiles == 1 else 's'))
         else:
-            line += ' Every fund was matched to its GP.'
+            line += ' Every file was matched to its GP.'
     out.append('<p class="headline">%s</p>' % line)
 
     # ---- KPI tiles ----------------------------------------------------------
@@ -378,34 +375,32 @@ def write_management(path: str, scores: List[FileScore], cfg, run_info: dict,
 
     # ---- funds the reference does not know ---------------------------------
     if has_ref:
-        unknown = collections.OrderedDict()
-        for s in sorted(scores, key=lambda x: fund_label(x)):
-            if s.fund_ref_status in ('not found', 'ambiguous', 'no name'):
-                name = (s.fund_name or s.fund_id or '(no fund name in the file)').strip()
-                unknown.setdefault(name, []).append(s)
-        close = sorted({(s.fund_name or s.fund_id, s.ref_fund, s.gp_name) for s in scores
+        unknown = sorted((s for s in scores if s.fund_ref_status in ('not found', 'ambiguous', 'no name')),
+                         key=lambda x: x.filename)
+        close = sorted({(s.filename, s.ref_fund, s.gp_name) for s in scores
                         if s.fund_ref_status == 'close'})
-        out.append('<section><h2>Funds not found in the fund reference (%d)</h2>' % len(unknown))
+        out.append('<section><h2>Files whose fund is not in the fund reference (%d)</h2>' % len(unknown))
         if unknown:
-            out.append('<table><colgroup><col style="width:38%"><col style="width:60px"><col></colgroup>'
-                       '<tr><th>Fund name as written by the GP</th><th class="n">Files</th>'
-                       '<th>Why</th></tr>')
-            for name, items in unknown.items():
-                m = items[0]
-                why = ('matches more than one fund: ' + m.fund_ref_label.split(': ', 1)[-1]
+            out.append('<table><colgroup><col style="width:46%"><col></colgroup>'
+                       '<tr><th>File name</th><th>Why</th></tr>')
+            for m in unknown[:25]:
+                why = ('matches funds of more than one GP: ' + m.fund_ref_label.split(': ', 1)[-1]
                        if m.fund_ref_status == 'ambiguous' else
-                       'the file holds no fund name' if m.fund_ref_status == 'no name' else
-                       'no fund in the reference is close enough')
-                out.append('<tr><td><b class="down">%s</b></td><td class="n">%d</td><td>%s</td></tr>'
-                           % (html.escape(name), len(items), html.escape(why)))
+                       'the file name holds no fund name' if m.fund_ref_status == 'no name' else
+                       'no fund in the reference matches the file name')
+                out.append('<tr><td style="word-break:break-all"><b class="down">%s</b></td><td>%s</td></tr>'
+                           % (html.escape(m.filename), html.escape(why)))
             out.append('</table>')
+            if len(unknown) > 25:
+                out.append('<div class="muted" style="margin-top:4px">%d more in summary.xlsx.</div>'
+                           % (len(unknown) - 25))
         else:
-            out.append('<p>Every fund was found.</p>')
+            out.append('<p>Every file name was matched to a fund and its GP.</p>')
         if close:
-            out.append('<div class="muted" style="margin-top:4px">%d fund name%s matched only '
+            out.append('<div class="muted" style="margin-top:4px">%d file name%s matched only '
                        'approximately; please confirm: %s</div>'
                        % (len(close), '' if len(close) == 1 else 's',
-                          html.escape('; '.join('"%s" = %s (%s)' % c for c in close[:6]))
+                          html.escape('; '.join('%s = %s (%s)' % c for c in close[:6]))
                           + (' and %d more' % (len(close) - 6) if len(close) > 6 else '')))
         out.append('</section>')
 

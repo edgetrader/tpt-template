@@ -1,5 +1,10 @@
 """Fund reference: who is the GP behind each submission.
 
+The GP is identified from the fund name in the submission's FILE NAME (for
+example "Meridian PE Access Fund_TPT_2026Q3.xlsx"), not from the portfolio
+name inside the TPT table. ``match_filename`` does that; ``match`` compares two
+plain names and is kept for name-to-name lookups.
+
 The reference is an Excel workbook with a "Fund Name" tab holding a table with
 at least two columns, GP Name and Fund Name. The fund name a GP wrote in the
 TPT (field 3, falling back to field 1) is matched to that table. GPs spell
@@ -37,12 +42,13 @@ _ABBREV = {
     'pe': 'private equity', 'infra': 'infrastructure', 're': 'real estate',
     'opps': 'opportunities', 'opp': 'opportunities', 'intl': 'international',
     'mgmt': 'management', 'cap': 'capital', 'sr': 'senior', 'dl': 'direct lending',
-    'ptrs': 'partners', 'hldgs': 'holdings', 'secs': 'secondaries',
+    'ptrs': 'partners', 'hldgs': 'holdings', 'secs': 'secondaries', 'cre': 'commercial real estate',
     '1': 'i', '2': 'ii', '3': 'iii', '4': 'iv', '5': 'v', '6': 'vi', '7': 'vii', '8': 'viii',
 }
 _NUMERALS = {'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'}
 
 CLOSE_CUTOFF = 0.82        # similarity at or above this is a close match
+FILE_CUTOFF = 0.70         # file names abbreviate more, so a lower bar (weighted by rarity)
 AMBIGUOUS_GAP = 0.03       # two candidates this near each other are ambiguous
 
 
@@ -70,13 +76,13 @@ class FundMatch:
     @property
     def label(self) -> str:
         if self.status == 'exact':
-            return 'Matched' if self.same_text else 'Matched: %s' % self.ref_fund
+            return 'Matched: %s' % self.ref_fund
         if self.status == 'close':
             return 'Close match: %s (%.0f%%)' % (self.ref_fund, 100 * self.similarity)
         if self.status == 'ambiguous':
             return 'Ambiguous: %s' % self.alternatives
         if self.status == 'no name':
-            return 'No fund name in the file'
+            return 'No fund name in the file name'
         return 'NOT IN FUND REFERENCE'
 
 
@@ -91,10 +97,60 @@ def normalise_name(name: str) -> Tuple[str, frozenset]:
     return ' '.join(words), frozenset(words)
 
 
+# Words in file names that are never part of a fund name.
+_FILE_NOISE = {'tpt', 'v5', 'v6', 'v7', 'v8', 'final', 'draft', 'copy', 'report', 'template',
+               'data', 'file', 'q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'fy', 'xlsx', 'xlsm', 'rev',
+               'updated', 'new', 'old', 'version', 'submission'}
+
+
+def filename_tokens(filename: str) -> List[str]:
+    """Words of a file name: extension dropped, CamelCase and separators split,
+    dates and noise words removed, abbreviations expanded."""
+    stem = re.sub(r'\.[A-Za-z0-9]{3,4}$', '', str(filename))
+    stem = re.sub(r'([a-z])([A-Z])', r'\1 \2', stem)          # MeridianAccess -> Meridian Access
+    stem = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', stem)    # PEAccess -> PE Access
+    words = []
+    for w in re.split(r'[^A-Za-z0-9]+', stem.lower().replace('&', ' and ')):
+        if not w or w in _FILE_NOISE or len(re.findall(r'\d', w)) >= 3 or \
+                re.fullmatch(r'v\d+|q\d|[a-z]{3}\d{2}|\d{1,2}[a-z]{3}', w):
+            continue
+        w = _ABBREV.get(w, w)
+        words.extend(w.split())
+    return [w for w in words if w not in _NOISE]
+
+
+def _stem(w: str) -> str:
+    """Crude singular form, so "secondaries" meets "secondary"."""
+    if len(w) > 4 and w.endswith('ies'):
+        return w[:-3] + 'y'
+    if len(w) > 3 and w.endswith('s') and not w.endswith('ss'):
+        return w[:-1]
+    return w
+
+
+def _token_hit(tok: str, words: List[str]) -> float:
+    """1.0 for the word itself, the similarity for a near spelling, else 0."""
+    if tok in words or _stem(tok) in {_stem(w) for w in words}:
+        return 1.0
+    if tok in _NUMERALS:
+        return 0.0                       # fund numbers must match exactly
+    best = max((difflib.SequenceMatcher(None, tok, w).ratio() for w in words), default=0.0)
+    return best if best >= 0.85 else 0.0
+
+
 class FundReference:
     def __init__(self, funds: List[RefFund], path: str = ''):
+        import math
         self.funds = funds
         self.path = path
+        # Rare words (a fund's own name) weigh more than words most funds share
+        # ("infrastructure", "debt", a house prefix).
+        df = {}
+        for f in funds:
+            for w in set(f.key.split()):
+                df[w] = df.get(w, 0) + 1
+        n = max(1, len(funds))
+        self.weight = {w: math.log(1 + n / c) for w, c in df.items()}
 
     def __len__(self):
         return len(self.funds)
@@ -130,6 +186,46 @@ class FundReference:
             return FundMatch('ambiguous', similarity=best_sim,
                              alternatives=' / '.join([best.fund] + [r.fund for r in rivals[:2]]))
         return FundMatch('close', best.gp, best.fund, best_sim)
+
+    def match_filename(self, filename: str) -> FundMatch:
+        """Find the reference fund whose name appears in ``filename``."""
+        words = filename_tokens(filename)
+        if not words:
+            return FundMatch('no name')
+        file_nums = set(words) & _NUMERALS
+        scored = []
+        for f in self.funds:
+            ref = [w for w in f.key.split()]
+            if not ref:
+                continue
+            # A numbered fund needs its number in the file name, and a file naming
+            # a fund number cannot belong to a fund with a different one.
+            ref_nums = set(ref) & _NUMERALS
+            if not ref_nums <= file_nums or (file_nums and ref_nums and file_nums != ref_nums):
+                continue
+            hits = [_token_hit(t, words) for t in ref]
+            found = sum(1 for h in hits if h)
+            if found < min(2, len(ref)):
+                continue
+            wts = [self.weight.get(t, 1.0) for t in ref]
+            sim = sum(h * w for h, w in zip(hits, wts)) / sum(wts)
+            exact = all(h == 1.0 for h in hits)
+            scored.append((sim, found, exact, f))
+        if not scored:
+            return FundMatch('not found')
+        # Best coverage first; among equals, the fund that explains more words.
+        scored.sort(key=lambda x: (-x[0], -x[1]))
+        sim, found, exact, best = scored[0]
+        if sim < FILE_CUTOFF:
+            return FundMatch('not found', similarity=sim, alternatives='nearest: %s' % best.fund)
+        rivals = [f for s2, n2, _, f in scored[1:]
+                  if sim - s2 <= AMBIGUOUS_GAP and n2 == found and f.gp != best.gp]
+        if rivals:
+            return FundMatch('ambiguous', similarity=sim,
+                             alternatives=' / '.join([best.fund] + [r.fund for r in rivals[:2]]))
+        if exact:
+            return FundMatch('exact', best.gp, best.fund, 1.0, same_text=False)
+        return FundMatch('close', best.gp, best.fund, sim)
 
 
 class FundReferenceError(Exception):

@@ -8,7 +8,7 @@ from typing import List
 
 from ..scorer import FileScore
 
-SUMMARY_COLUMNS = ['file', 'gp_name', 'fund_name_in_file', 'fund_reference_match', 'score', 'rating', 'version', 'positions', 'columns_mapped',
+SUMMARY_COLUMNS = ['file', 'gp_name', 'fund_from_file_name', 'fund_reference_match', 'score', 'rating', 'version', 'positions', 'columns_mapped',
                    'structure', 'completeness', 'validity', 'consistency',
                    'gates', 'not_scored', 'tab_found_in', 'missing_columns', 'extra_columns',
                    'renamed_columns', 'mandatory_blanks', 'wrong_data_type', 'date_formats',

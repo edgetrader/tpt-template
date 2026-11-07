@@ -147,7 +147,7 @@ def _run_summary(ws, scores, cfg, run_info):
                   'The lowest cap that applies wins.').font = SUB_FONT
     r += 2
     start = r
-    cols = [('File', 46), ('GP name', 26), ('Fund name in file', 34), ('Fund reference match', 30),
+    cols = [('File', 46), ('GP name', 26), ('Fund matched from file name', 38), ('Fund reference match', 30),
             ('Score', 8), ('Rating', 13), ('Version', 9), ('Positions', 10), ('Columns mapped', 14),
             ('Structure', 11), ('Completeness', 13), ('Validity', 10), ('Consistency', 12),
             ('Gates applied', 34), ('Could not be read', 20), ('Tab found in', 14),
@@ -164,7 +164,7 @@ def _run_summary(ws, scores, cfg, run_info):
                                                        for k in FINDING_KEYS] + [s.remarks]
         for i, v in enumerate(row, start=1):
             c = ws.cell(r, i, v)
-            if i >= at['Gates applied'] or i in (at['GP name'], at['Fund name in file'],
+            if i >= at['Gates applied'] or i in (at['GP name'], at['Fund matched from file name'],
                                                   at['Fund reference match']):
                 c.alignment = Alignment(wrap_text=True, vertical='top')
         ws.cell(r, at['Tab found in']).font = TAB_FONT

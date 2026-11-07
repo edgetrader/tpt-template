@@ -81,30 +81,37 @@ python tpt_score.py --settings other.yaml
 the folder you run the command in. `--fund-ref` on the command line replaces `fund_reference`.
 
 A relative path is read from the project folder and `~` means your home folder. The file is
-optional; without it `--in` is required. `config/settings.yaml` is not committed to git
-(it holds local paths); `config/settings.example.yaml` is the template to copy.
+optional; without it `--in` is required. It is committed with the project, so update the
+paths when you run from another machine.
 
 ### Fund reference: which GP sent the file
 
 ```
-python tpt_score.py --in ../data --fund-ref ../reference/funds.xlsx
+python tpt_score.py --in data --fund-ref /path/to/fund_reference.xlsx
 ```
 
 `--fund-ref` (`-f`) takes a workbook with a **Fund Name** tab holding a table with
 **GP Name** and **Fund Name** columns (title rows above the table are fine; other columns are
-ignored). `fund_reference.example.xlsx` shows the layout. The fund name in each TPT (field 3,
-else field 1) is matched to that table:
+ignored). Name the file `fund_reference*.xlsx` and git ignores it, so GP and fund names stay
+out of the repository.
+
+The GP is found from the **fund name in each submission's file name**, not from the portfolio
+name inside the TPT table. For example `Meridian PE Access Fund_TPT_V7_2026Q3.xlsx` is matched
+to "Meridian Private Equity Access Fund". Words such as TPT, V7, final and draft, dates and
+quarters (2026Q3, 20260930, Sep26) are ignored; CamelCase names are split; abbreviations
+(PE, Infra, RE, CRE, DL, Sr...) are expanded; and a fund's distinctive words count for more
+than words most funds share:
 
 | Result | Meaning | Highlight |
 | --- | --- | --- |
-| Matched | Same name once case, punctuation, legal forms (LP, SCSp, SICAV, ELTIF...) and abbreviations (PE, Infra, RE...) are ignored | Green |
-| Close match | Similar enough (82% or more) to be the same fund; shown with the reference name so a person can confirm | Amber |
+| Matched | Every word of the reference fund name is in the file name | Green |
+| Close match | Most of the fund name is there (70% or more, weighted by how distinctive each word is); shown with the reference name so a person can confirm | Amber |
 | Ambiguous | Two funds of different GPs match about equally | Red |
-| NOT IN FUND REFERENCE | Nothing close enough, or no fund name in the file | Red, and named in Remarks |
+| NOT IN FUND REFERENCE | No reference fund matches the file name | Red, and named in Remarks |
 
 Fund numbering must agree, so "Fund II" never matches "Fund III". The match does not change the
-score; it adds GP name, fund name and match columns to the summary, groups the management page
-by GP and lists the funds that were not found. If the reference sits inside the input folder it
+score; it adds GP name, matched fund and match columns to the summary, groups the management
+page by GP and lists the files whose fund was not found. If the reference sits inside the input folder it
 is not scored as a submission. Without `--fund-ref`, a `gp_map.csv` (below) can still group by GP.
 
 ### Grouping by GP without a fund reference
@@ -211,7 +218,7 @@ settings that produced it.
 
 ```
 python tests/make_test_data.py      # build the fixtures (optional; the tests do it)
-python tests/test_tpt_score.py      # 100 tests
+python tests/test_tpt_score.py      # 104 tests
 ```
 
 `tests/data/` holds 33 fixtures: one clean file that scores exactly 100.0, one

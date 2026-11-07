@@ -941,6 +941,37 @@ class TestFundReference(unittest.TestCase):
         self.assertEqual(m.status, 'not found')
         self.assertEqual(m.label, 'NOT IN FUND REFERENCE')
 
+    def test_gp_comes_from_the_fund_name_in_the_file_name(self):
+        r = self._ref()
+        m = r.match_filename('Alpha PE Fund II_TPT_V7_2026Q3.xlsx')
+        self.assertEqual((m.gp, m.ref_fund), ('Alpha Partners', 'Alpha Private Equity Fund II, L.P.'))
+        m = r.match_filename('AlphaPrivateEquityFundIII-TPT-20260930.xlsx')
+        self.assertEqual(m.ref_fund, 'Alpha Private Equity Fund III')
+        self.assertEqual(r.match_filename('Beta Sr Infra Debt TPT final.xlsm').gp, 'Beta Capital')
+        self.assertEqual(r.match_filename('TPT_Gamma Pacific Secondaries Opportunities.xlsx').gp,
+                         'Gamma GP')
+
+    def test_file_name_without_a_known_fund_is_not_found(self):
+        r = self._ref()
+        self.assertEqual(r.match_filename('Alpha Private Equity Fund IV TPT.xlsx').status, 'not found')
+        self.assertEqual(r.match_filename('Delta Macro TPT 2026Q3.xlsx').status, 'not found')
+        self.assertEqual(r.match_filename('TPT_V7_2026Q3.xlsx').status, 'no name')
+
+    def test_portfolio_name_inside_the_file_is_not_used(self):
+        import openpyxl
+        folder = os.path.join(self.dir, 'named')
+        os.makedirs(folder)
+        shutil.copy(os.path.join(DATA, 'clean.xlsx'), os.path.join(folder, 'Beta Senior Infra Debt TPT.xlsx'))
+        out = os.path.join(self.dir, 'out3')
+        cli.run(['--in', folder, '--out', out, '--template', TEMPLATE, '--quiet', '--no-timestamp',
+                 '--fund-ref', self.ref])
+        ws = openpyxl.load_workbook(os.path.join(out, 'summary.xlsx'))['Run summary']
+        rows = [[c.value for c in r] for r in ws.iter_rows()]
+        head = next(r for r in rows if r[0] == 'File')
+        row = rows[rows.index(head) + 1]
+        self.assertEqual(row[head.index('GP name')], 'Beta Capital')
+        self.assertEqual(row[head.index('Fund matched from file name')], 'Beta Senior Infra Debt Fund')
+
     def test_missing_tab_is_a_clear_error(self):
         import openpyxl
         from tpt_score.fundref import FundReferenceError, load_fund_reference
@@ -961,9 +992,9 @@ class TestFundReference(unittest.TestCase):
         cells = [str(c.value) for row in wb['Run summary'].iter_rows() for c in row if c.value]
         self.assertIn('GP name', cells)
         self.assertIn('NOT IN FUND REFERENCE', cells)
-        self.assertTrue(any(c.startswith('FUND NOT IN FUND REFERENCE') for c in cells))
+        self.assertTrue(any(c.startswith('FUND IN FILE NAME NOT IN FUND REFERENCE') for c in cells))
         page = _read(os.path.join(out, 'management_summary.html'))
-        self.assertIn('Funds not found in the fund reference', page)
+        self.assertIn('Files whose fund is not in the fund reference', page)
         self.assertIn('By GP, weakest first', page)
 
     def test_reference_inside_the_input_folder_is_not_scored(self):

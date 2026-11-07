@@ -188,11 +188,10 @@ def run(args=None) -> int:
                           gates=['G1: the file could not be processed'],
                           rules_version=cfg.rules_version)
         if fund_ref is not None:
-            from .fundref import tpt_fund_name
-            m = fund_ref.match(tpt_fund_name(s)) if not s.error else None
-            if m is None:
-                s.fund_ref_label = 'Not checked: the file could not be scored'
-            else:
+            # The GP comes from the fund name in the FILE NAME, so it is known
+            # even for a file that could not be read.
+            m = fund_ref.match_filename(s.filename)
+            if True:
                 s.fund_ref_status, s.fund_ref_label = m.status, m.label
                 s.gp_name, s.ref_fund = m.gp, m.ref_fund
         scores.append(s)
