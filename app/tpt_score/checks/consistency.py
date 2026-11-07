@@ -8,9 +8,9 @@ from .base import CheckResult, Context, band, check, share
 from .completeness import FUND_LEVEL
 
 
-@check('K1', 'Fund-level fields identical on every row')
+@check('K1', 'Fund details the same on every row')
 def k1(ctx: Context) -> CheckResult:
-    res = CheckResult('K1', 'Fund-level fields identical on every row', 'consistency')
+    res = CheckResult('K1', 'Fund details the same on every row', 'consistency')
     tokens = [t for t in FUND_LEVEL if ctx.cmap.has(t)]
     if not tokens or ctx.n_rows < 2:
         res.detail = 'fewer than two positions, or no fund-level columns'
@@ -36,9 +36,9 @@ def k1(ctx: Context) -> CheckResult:
     return res
 
 
-@check('K2', 'Valuation weights sum to 100%')
+@check('K2', 'Weights add up to 100%')
 def k2(ctx: Context) -> CheckResult:
-    res = CheckResult('K2', 'Valuation weights sum to 100%', 'consistency')
+    res = CheckResult('K2', 'Weights add up to 100%', 'consistency')
     if not ctx.cmap.has('26') or not ctx.rows:
         res.detail = 'no valuation weight column'
         res.evaluated = False
@@ -67,9 +67,9 @@ def k2(ctx: Context) -> CheckResult:
     return res
 
 
-@check('K3', 'Market values add up to the fund NAV')
+@check('K3', 'Market values add up to the NAV')
 def k3(ctx: Context) -> CheckResult:
-    res = CheckResult('K3', 'Market values add up to the fund NAV', 'consistency')
+    res = CheckResult('K3', 'Market values add up to the NAV', 'consistency')
     if not (ctx.cmap.has('24') and ctx.cmap.has('5')) or not ctx.rows:
         res.detail = 'market value in portfolio currency or NAV column missing'
         res.evaluated = False
@@ -116,9 +116,9 @@ def k3(ctx: Context) -> CheckResult:
     return res
 
 
-@check('K4', 'Quotation and portfolio market values agree through one FX rate')
+@check('K4', 'Exchange rates consistent')
 def k4(ctx: Context) -> CheckResult:
-    res = CheckResult('K4', 'Quotation and portfolio market values agree through one FX rate',
+    res = CheckResult('K4', 'Exchange rates consistent',
                       'consistency')
     need = ('22', '24', '21')
     if not all(ctx.cmap.has(t) for t in need) or not ctx.rows:
@@ -167,9 +167,9 @@ def k4(ctx: Context) -> CheckResult:
     return res
 
 
-@check('K5', 'No duplicated positions')
+@check('K5', 'No duplicate positions')
 def k5(ctx: Context) -> CheckResult:
-    res = CheckResult('K5', 'No duplicated positions', 'consistency')
+    res = CheckResult('K5', 'No duplicate positions', 'consistency')
     if ctx.n_rows < 2:
         res.detail = 'fewer than two positions'
         res.evaluated = False
@@ -201,9 +201,9 @@ def k5(ctx: Context) -> CheckResult:
     return res
 
 
-@check('K6', 'Date logic: valuation date not after reporting date, and not stale')
+@check('K6', 'Dates in order and up to date')
 def k6(ctx: Context) -> CheckResult:
-    res = CheckResult('K6', 'Date logic: valuation date not after reporting date, and not stale',
+    res = CheckResult('K6', 'Dates in order and up to date',
                       'consistency')
     if not (ctx.cmap.has('6') and ctx.cmap.has('7')) or not ctx.rows:
         res.detail = 'valuation or reporting date column missing'

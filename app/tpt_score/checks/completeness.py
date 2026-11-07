@@ -25,9 +25,9 @@ def _applicable(ctx: Context, token: str, row, cic: str):
     return None
 
 
-@check('C1', 'Mandatory fields populated')
+@check('C1', 'Mandatory fields filled in')
 def c1(ctx: Context) -> CheckResult:
-    res = CheckResult('C1', 'Mandatory fields populated', 'completeness')
+    res = CheckResult('C1', 'Mandatory fields filled in', 'completeness')
     tokens = [t for t in ctx.fields.mandatory_tokens if ctx.cmap.has(t)]
     if not tokens or not ctx.rows:
         res.detail = 'no mandatory columns mapped'
@@ -53,9 +53,9 @@ def c1(ctx: Context) -> CheckResult:
     return res
 
 
-@check('C2', 'Conditional fields populated when their trigger applies')
+@check('C2', 'Conditional fields filled in when needed')
 def c2(ctx: Context) -> CheckResult:
-    res = CheckResult('C2', 'Conditional fields populated when their trigger applies', 'completeness')
+    res = CheckResult('C2', 'Conditional fields filled in when needed', 'completeness')
     tokens = [t for t in ctx.fields.conditional_tokens if ctx.cmap.has(t)]
     if not tokens or not ctx.rows:
         res.detail = 'no conditional columns mapped'
@@ -87,9 +87,9 @@ def c2(ctx: Context) -> CheckResult:
     return res
 
 
-@check('C3', 'Instrument identifier and CIC on every position')
+@check('C3', 'Every position has an ID and CIC code')
 def c3(ctx: Context) -> CheckResult:
-    res = CheckResult('C3', 'Instrument identifier and CIC on every position', 'completeness')
+    res = CheckResult('C3', 'Every position has an ID and CIC code', 'completeness')
     tokens = [t for t in ctx.opt('C3', 'fields', ['12', '14']) if ctx.cmap.has(t)]
     if not tokens or not ctx.rows:
         res.detail = 'identifier columns not mapped'
@@ -108,9 +108,9 @@ def c3(ctx: Context) -> CheckResult:
     return res
 
 
-@check('C4', 'Fund-level fields on every row')
+@check('C4', 'Fund details on every row')
 def c4(ctx: Context) -> CheckResult:
-    res = CheckResult('C4', 'Fund-level fields on every row', 'completeness')
+    res = CheckResult('C4', 'Fund details on every row', 'completeness')
     tokens = [t for t in FUND_LEVEL if ctx.cmap.has(t) and ctx.fields.get(t) and
               ctx.fields.get(t).flag in ('M', 'C')]
     if not tokens or not ctx.rows:
@@ -131,9 +131,9 @@ def c4(ctx: Context) -> CheckResult:
     return res
 
 
-@check('C5', 'No placeholders used as values')
+@check('C5', 'No placeholder values (N/A, TBC)')
 def c5(ctx: Context) -> CheckResult:
-    res = CheckResult('C5', 'No placeholders used as values', 'completeness')
+    res = CheckResult('C5', 'No placeholder values (N/A, TBC)', 'completeness')
     extra = ctx.opt('C5', 'placeholders', None)
     # A placeholder is a placeholder wherever it sits, so every mapped template
     # column counts, not only the mandatory ones.

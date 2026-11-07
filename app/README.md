@@ -164,30 +164,30 @@ all costs at least 0.25, however few rows are involved.
 
 | ID | Check | Weight | Critical |
 | --- | --- | --- | --- |
-| S1 | Header sits in row 1, column A | 15 | |
-| S2 | Template version is V7 | 15 | yes |
+| S1 | Table starts at cell A1 | 15 | |
+| S2 | Uses the V7 template | 15 | yes |
 | S3 | All mandatory columns present | 30 | yes |
 | S4 | Column names match the template | 15 | |
-| S5 | No duplicate or ambiguous columns | 10 | |
-| S6 | No unrecognised extra columns | 5 | |
-| S7 | Table body holds only positions | 10 | |
-| C1 | Mandatory fields populated | 45 | |
-| C2 | Conditional fields populated when their trigger applies | 25 | |
-| C3 | Instrument identifier and CIC on every position | 15 | yes |
-| C4 | Fund-level fields on every row | 10 | |
-| C5 | No placeholders used as values | 5 | |
-| V1 | Correct data type: numbers not text, no error values | 20 | |
+| S5 | No repeated columns | 10 | |
+| S6 | No extra columns | 5 | |
+| S7 | Only positions in the table | 10 | |
+| C1 | Mandatory fields filled in | 45 | |
+| C2 | Conditional fields filled in when needed | 25 | |
+| C3 | Every position has an ID and CIC code | 15 | yes |
+| C4 | Fund details on every row | 10 | |
+| C5 | No placeholder values (N/A, TBC) | 5 | |
+| V1 | Numbers stored as numbers | 20 | |
 | V2 | Dates valid and in one format | 20 | |
-| V3 | Closed-list values valid: CIC, currency, country, flags | 20 | |
-| V4 | Identifier format and check digit: ISIN, LEI | 15 | |
-| V5 | Numeric range and scale | 15 | |
-| V6 | Text hygiene: stray spaces, lost leading zeros, case | 10 | |
-| K1 | Fund-level fields identical on every row | 20 | |
-| K2 | Valuation weights sum to 100% | 25 | |
-| K3 | Market values add up to the fund NAV | 20 | |
-| K4 | Quotation and portfolio values agree through one FX rate | 15 | |
-| K5 | No duplicated positions | 10 | yes |
-| K6 | Valuation date not after the reporting date, and not stale | 10 | |
+| V3 | Valid codes (CIC, currency, country, Y/N) | 20 | |
+| V4 | Valid ISIN and LEI codes | 15 | |
+| V5 | Numbers in a sensible range | 15 | |
+| V6 | Clean text (no stray spaces) | 10 | |
+| K1 | Fund details the same on every row | 20 | |
+| K2 | Weights add up to 100% | 25 | |
+| K3 | Market values add up to the NAV | 20 | |
+| K4 | Exchange rates consistent | 15 | |
+| K5 | No duplicate positions | 10 | yes |
+| K6 | Dates in order and up to date | 10 | |
 
 Weights are per dimension and add up to 100 within each.
 

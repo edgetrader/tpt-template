@@ -14,10 +14,10 @@ def _col_letter(n: int) -> str:
     return s
 
 
-@check('S1', 'Header sits in row 1, column A')
+@check('S1', 'Table starts at cell A1')
 def s1(ctx: Context) -> CheckResult:
     t = ctx.table
-    res = CheckResult('S1', 'Header sits in row 1, column A', 'structure')
+    res = CheckResult('S1', 'Table starts at cell A1', 'structure')
     if t.at_origin:
         res.detail = 'header in A1'
         return res
@@ -29,9 +29,9 @@ def s1(ctx: Context) -> CheckResult:
     return res
 
 
-@check('S2', 'Template version is V7')
+@check('S2', 'Uses the V7 template')
 def s2(ctx: Context) -> CheckResult:
-    res = CheckResult('S2', 'Template version is V7', 'structure')
+    res = CheckResult('S2', 'Uses the V7 template', 'structure')
     if ctx.version == 'V7':
         res.detail = 'V7'
         return res
@@ -77,9 +77,9 @@ def s4(ctx: Context) -> CheckResult:
     return res
 
 
-@check('S5', 'No duplicate or ambiguous columns')
+@check('S5', 'No repeated columns')
 def s5(ctx: Context) -> CheckResult:
-    res = CheckResult('S5', 'No duplicate or ambiguous columns', 'structure')
+    res = CheckResult('S5', 'No repeated columns', 'structure')
     cols = ctx.cmap.columns
     dups = ctx.cmap.duplicate_columns
     res.n_applicable, res.n_affected = len(cols), len(dups)
@@ -95,9 +95,9 @@ def s5(ctx: Context) -> CheckResult:
     return res
 
 
-@check('S6', 'No unrecognised extra columns')
+@check('S6', 'No extra columns')
 def s6(ctx: Context) -> CheckResult:
-    res = CheckResult('S6', 'No unrecognised extra columns', 'structure')
+    res = CheckResult('S6', 'No extra columns', 'structure')
     cols = ctx.cmap.columns
     unknown = [c for c in ctx.cmap.unknown_columns if str(c.header or '').strip()]
     blank = [c for c in ctx.cmap.unknown_columns if not str(c.header or '').strip()]
@@ -115,9 +115,9 @@ def s6(ctx: Context) -> CheckResult:
     return res
 
 
-@check('S7', 'Table body holds only positions')
+@check('S7', 'Only positions in the table')
 def s7(ctx: Context) -> CheckResult:
-    res = CheckResult('S7', 'Table body holds only positions', 'structure')
+    res = CheckResult('S7', 'Only positions in the table', 'structure')
     t = ctx.table
     res.n_applicable, res.n_affected = t.rows_scanned, t.dropped_rows
     res.f = share(t.dropped_rows, t.rows_scanned)

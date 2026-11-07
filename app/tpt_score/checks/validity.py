@@ -23,9 +23,9 @@ def _typed_tokens(ctx: Context, kinds):
     return out
 
 
-@check('V1', 'Correct data type: numbers not text, no error values')
+@check('V1', 'Numbers stored as numbers')
 def v1(ctx: Context) -> CheckResult:
-    res = CheckResult('V1', 'Correct data type: numbers not text, no error values', 'validity')
+    res = CheckResult('V1', 'Numbers stored as numbers', 'validity')
     tokens = _typed_tokens(ctx, NUMERIC_TYPES)
     if not tokens or not ctx.rows:
         res.detail = 'no numeric columns mapped'
@@ -94,9 +94,9 @@ def v2(ctx: Context) -> CheckResult:
     return res
 
 
-@check('V3', 'Closed-list values valid: CIC, currency, country, flags')
+@check('V3', 'Valid codes (CIC, currency, country, Y/N)')
 def v3(ctx: Context) -> CheckResult:
-    res = CheckResult('V3', 'Closed-list values valid: CIC, currency, country, flags', 'validity')
+    res = CheckResult('V3', 'Valid codes (CIC, currency, country, Y/N)', 'validity')
     kinds = {}
     for t in ctx.cmap.mapped_tokens:
         f = ctx.fields.get(t)
@@ -135,9 +135,9 @@ def v3(ctx: Context) -> CheckResult:
     return res
 
 
-@check('V4', 'Identifier format and check digit: ISIN, LEI')
+@check('V4', 'Valid ISIN and LEI codes')
 def v4(ctx: Context) -> CheckResult:
-    res = CheckResult('V4', 'Identifier format and check digit: ISIN, LEI', 'validity')
+    res = CheckResult('V4', 'Valid ISIN and LEI codes', 'validity')
     checks = []
     if ctx.cmap.has('14'):
         checks.append(('14', '15', 'ISIN'))         # 15 says which code type 14 holds
@@ -188,9 +188,9 @@ def v4(ctx: Context) -> CheckResult:
     return res
 
 
-@check('V5', 'Numeric range and scale')
+@check('V5', 'Numbers in a sensible range')
 def v5(ctx: Context) -> CheckResult:
-    res = CheckResult('V5', 'Numeric range and scale', 'validity')
+    res = CheckResult('V5', 'Numbers in a sensible range', 'validity')
     tokens = _typed_tokens(ctx, NUMERIC_TYPES)
     if not tokens or not ctx.rows:
         res.detail = 'no numeric columns mapped'
@@ -220,9 +220,9 @@ def v5(ctx: Context) -> CheckResult:
     return res
 
 
-@check('V6', 'Text hygiene: stray spaces, lost leading zeros, case')
+@check('V6', 'Clean text (no stray spaces)')
 def v6(ctx: Context) -> CheckResult:
-    res = CheckResult('V6', 'Text hygiene: stray spaces, lost leading zeros, case', 'validity')
+    res = CheckResult('V6', 'Clean text (no stray spaces)', 'validity')
     coded = {}
     for t in ctx.cmap.mapped_tokens:
         f = ctx.fields.get(t)

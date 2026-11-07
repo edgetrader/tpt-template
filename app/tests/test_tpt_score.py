@@ -755,7 +755,7 @@ class TestRemarks(unittest.TestCase):
             for text in [t for t in html_text.split('\n') if '(' in t and not t.startswith(('GP', 'Tab', 'Fund'))]:
                 self.assertRegex(text, r'^[A-Z][A-Za-z -]+ \(\d+\) \S', '%s: %r' % (name, text))
         k2 = self._score('k2_weights_off.xlsx').remarks
-        self.assertIn('Valuation weights do not sum to 100%', k2)
+        self.assertIn('Weights do not add up to 100%', k2)
         self.assertNotIn('tolerance', k2)
 
     def test_clean_file_has_no_issues(self):

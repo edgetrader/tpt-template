@@ -161,19 +161,19 @@ def dates_standard(fs) -> bool:
 
 # What a failed check means, written as the problem rather than the rule.
 CHECK_PROBLEM = {
-    'C2': 'Conditional fields empty where required',
-    'C3': 'Instrument identifier or CIC missing',
-    'C4': 'Fund-level fields not on every row',
-    'C5': 'Placeholder values used (N/A, TBC, ...)',
-    'V4': 'Invalid ISIN or LEI check digits',
-    'V5': 'Numbers out of range or on the wrong scale',
-    'V6': 'Stray spaces, lost leading zeros or wrong case',
-    'K1': 'Fund-level fields differ between rows',
-    'K2': 'Valuation weights do not sum to 100%',
+    'C2': 'Conditional fields empty where needed',
+    'C3': 'Some positions lack an ID or CIC code',
+    'C4': 'Fund details missing on some rows',
+    'C5': 'Placeholder values used (N/A, TBC)',
+    'V4': 'Invalid ISIN or LEI codes',
+    'V5': 'Numbers out of range',
+    'V6': 'Untidy text (stray spaces, lost leading zeros)',
+    'K1': 'Fund details differ between rows',
+    'K2': 'Weights do not add up to 100%',
     'K3': 'Market values do not add up to the NAV',
-    'K4': 'Quotation and portfolio values imply different FX rates',
-    'K5': 'Duplicated positions',
-    'K6': 'Valuation or reporting date inconsistent or stale',
+    'K4': 'Exchange rates inconsistent',
+    'K5': 'Duplicate positions',
+    'K6': 'Dates out of order or out of date',
 }
 # Shown elsewhere as their own findings, so not repeated under "Other checks".
 _TOLD = {'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'C1', 'V1', 'V2', 'V3'}
