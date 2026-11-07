@@ -1,0 +1,82 @@
+# tpt_score configuration.
+#
+# Every weight, tolerance and threshold the scoring model uses lives here.
+# Anything left out falls back to the built-in default, so a short file that
+# only overrides what you want to change is fine.
+#
+#   python tpt_score.py --in <folder> --config rules.yaml
+
+rules_version: '2026.1'
+
+# Where the FinDatEx V7 workbook sits. A relative path is looked for next to
+# the input folder, one level above it, and in the working directory.
+# --template on the command line overrides this.
+template: 'templates/TPT_V7  20241125_updated.xlsx'
+
+# The four dimensions and their share of the total score. Must add up to 100.
+dimensions:
+  structure: 15
+  completeness: 30
+  validity: 30
+  consistency: 25
+
+# A critical check that fails at all costs at least this share, however few
+# rows are affected.
+critical_floor: 0.25
+
+# Score thresholds. 95+ Accept, 80-94 Minor fixes, 50-79 Resubmit, below Reject.
+bands:
+  accept: 95
+  minor_fixes: 80
+  resubmit: 50
+
+gates:
+  min_mapped_columns: 10        # fewer recognised columns than this: score 0 (G2)
+  wrong_version_cap: 40         # not a V7 file (G4)
+  missing_mandatory:            # more than this share of mandatory columns missing (G5)
+    share: 0.20
+    cap: 49
+  critical_failure_cap: 94      # any critical check failed, so Accept is out of reach (G6)
+
+# Check weights. Within each dimension they must add up to 100.
+# Set critical: true on a check to give it the floor above and gate G6.
+checks:
+  # Structure
+  S1: {weight: 15, critical: false}    # header in row 1, column A
+  S2: {weight: 15, critical: true}     # template version is V7
+  S3: {weight: 30, critical: true}     # all mandatory columns present
+  S4: {weight: 15, critical: false}    # column names match the template
+  S5: {weight: 10, critical: false}    # no duplicate columns
+  S6: {weight: 5,  critical: false}    # no unrecognised extra columns
+  S7: {weight: 10, critical: false}    # body holds only positions
+
+  # Completeness
+  C1: {weight: 45, critical: false}    # mandatory fields populated
+  C2: {weight: 25, critical: false}    # triggered conditional fields populated
+  C3: {weight: 15, critical: true, fields: ['12', '14']}
+  C4: {weight: 10, critical: false}    # fund-level fields on every row
+  C5:
+    weight: 5
+    critical: false
+    placeholders: ['n/a', 'na', 'n.a.', '-', '--', 'null', 'none', 'tbd', 'tba', '?', 'xxx', 'nil']
+
+  # Validity and format
+  V1: {weight: 20, critical: false}    # numbers not text, no error values
+  V2: {weight: 20, critical: false}    # dates valid and in one format
+  V3: {weight: 20, critical: false}    # CIC, currency, country, flags
+  V4: {weight: 15, critical: false}    # ISIN and LEI check digits
+  V5: {weight: 15, critical: false}    # numeric range and scale
+  V6: {weight: 10, critical: false}    # stray spaces, case, lost leading zeros
+
+  # Consistency
+  K1: {weight: 20, critical: false}    # fund-level fields identical on every row
+  K2: {weight: 25, critical: false, tolerance_pp: 0.5,  hard_limit_pp: 5.0}
+  K3: {weight: 20, critical: false, tolerance_pct: 0.5, hard_limit_pct: 5.0}
+  K4: {weight: 15, critical: false, tolerance_pct: 1.0}
+  K5: {weight: 10, critical: true}     # no duplicated positions
+  K6: {weight: 10, critical: false, stale_days: 100}
+
+reports:
+  excel: true
+  html: true
+  file_scorecard_sheets_max: 150       # per-file scorecard sheets in the workbook

@@ -1,0 +1,11 @@
+output/*
+!output/.gitkeep
+data/*
+!data/.gitkeep
+archive/
+CLAUDE.md
+__pycache__/
+*.pyc
+.DS_Store
+~$*
+.~lock*

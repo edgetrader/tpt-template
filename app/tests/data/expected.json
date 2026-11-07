@@ -1,0 +1,462 @@
+[
+ {
+  "file": "clean.xlsx",
+  "note": "every check passes",
+  "rating": "Accept",
+  "min_score": 99.0,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [],
+  "passes": [
+   "S1",
+   "S2",
+   "S3",
+   "S4",
+   "S5",
+   "S6",
+   "S7",
+   "C1",
+   "C3",
+   "C4",
+   "C5",
+   "V1",
+   "V2",
+   "V3",
+   "V4",
+   "V5",
+   "V6",
+   "K1",
+   "K2",
+   "K3",
+   "K4",
+   "K5",
+   "K6"
+  ],
+  "gate": null
+ },
+ {
+  "file": "s1_title_rows.xlsx",
+  "note": "two title rows above the header",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "S1"
+  ],
+  "passes": [
+   "S3",
+   "C1",
+   "V1",
+   "K2"
+  ],
+  "gate": null
+ },
+ {
+  "file": "s1_offset_c4.xlsx",
+  "note": "table starts at C4",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "S1"
+  ],
+  "passes": [
+   "S3",
+   "C1"
+  ],
+  "gate": null
+ },
+ {
+  "file": "s3_missing_mandatory.xlsx",
+  "note": "the valuation date column is missing",
+  "rating": null,
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "S3"
+  ],
+  "passes": [],
+  "gate": "G6"
+ },
+ {
+  "file": "g5_many_missing.xlsx",
+  "note": "over half the mandatory columns are missing",
+  "rating": "Reject",
+  "min_score": null,
+  "max_score": 49.0,
+  "exact_score": null,
+  "fails": [],
+  "passes": [],
+  "gate": "G5"
+ },
+ {
+  "file": "s4_renamed.xlsx",
+  "note": "three columns carry a GP short label",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "S4"
+  ],
+  "passes": [
+   "S3"
+  ],
+  "gate": null
+ },
+ {
+  "file": "s5_duplicate_column.xlsx",
+  "note": "the market value column appears twice",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "S5"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "s6_extra_columns.xlsx",
+  "note": "two GP-internal columns added",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "S6"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "s7_totals_row.xlsx",
+  "note": "a TOTAL row under the last position",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "S7"
+  ],
+  "passes": [
+   "K2",
+   "K3"
+  ],
+  "gate": null
+ },
+ {
+  "file": "c1_empty_mandatory.xlsx",
+  "note": "two mandatory cells left empty",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "C1"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "c2_conditional_empty.xlsx",
+  "note": "a conditional field (46) left empty although its condition applies",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "C2"
+  ],
+  "passes": [
+   "C1"
+  ],
+  "gate": null
+ },
+ {
+  "file": "c3_missing_identifier.xlsx",
+  "note": "one position has no instrument identifier",
+  "rating": null,
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "C3"
+  ],
+  "passes": [],
+  "gate": "G6"
+ },
+ {
+  "file": "c4_fund_level_gap.xlsx",
+  "note": "one row has no fund name or NAV",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "C4",
+   "K1"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "c5_placeholders.xlsx",
+  "note": "N/A and TBD used instead of values",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "C5"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "v1_numbers_as_text.xlsx",
+  "note": "market values stored as text with separators",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V1"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "v2_dates_mixed.xlsx",
+  "note": "valuation date in DD/MM/YYYY, reporting date in ISO",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V2"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "v3_closed_list_words.xlsx",
+  "note": "currency and country written as words",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V3"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "v4_bad_isin.xlsx",
+  "note": "two ISINs fail their check digit",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V4"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "v5_percent_scale.xlsx",
+  "note": "weights given on a 0-100 scale",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V5"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "v6_stray_spaces.xlsx",
+  "note": "instrument and issuer names padded with spaces",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V6"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "k1_fund_varies.xlsx",
+  "note": "fund name and currency differ on one row",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "K1"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "k2_weights_off.xlsx",
+  "note": "weights add up to 90%",
+  "rating": "Minor fixes",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "K2"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "k3_nav_mismatch.xlsx",
+  "note": "market values are 30% below the stated NAV",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "K3"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "k4_fx_inconsistent.xlsx",
+  "note": "one row implies a different USD rate",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "K4"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "k5_duplicate_row.xlsx",
+  "note": "the first position appears twice",
+  "rating": null,
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "K5"
+  ],
+  "passes": [],
+  "gate": "G6"
+ },
+ {
+  "file": "k6_stale_date.xlsx",
+  "note": "valuation date is nine months before the reporting date",
+  "rating": "Accept",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "K6"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "g4_v6_template.xlsx",
+  "note": "a V6 file delivered as V7",
+  "rating": "Reject",
+  "min_score": null,
+  "max_score": 40.0,
+  "exact_score": null,
+  "fails": [
+   "S2"
+  ],
+  "passes": [],
+  "gate": "G4"
+ },
+ {
+  "file": "g3_header_only.xlsx",
+  "note": "header but no positions",
+  "rating": "Reject",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": 0.0,
+  "fails": [],
+  "passes": [],
+  "gate": "G3"
+ },
+ {
+  "file": "g2_not_a_tpt.xlsx",
+  "note": "an unrelated spreadsheet",
+  "rating": "Reject",
+  "min_score": null,
+  "max_score": null,
+  "exact_score": 0.0,
+  "fails": [],
+  "passes": [],
+  "gate": "G2"
+ },
+ {
+  "file": "r1_phantom_rows.xlsx",
+  "note": "a stray cell 900 rows below the data must not count as rows",
+  "rating": "Accept",
+  "exact_score": 100.0,
+  "gate": null,
+  "fails": [],
+  "passes": [
+   "S7"
+  ],
+  "min_score": null,
+  "max_score": null
+ },
+ {
+  "file": "r2_nav_zero.xlsx",
+  "note": "NAV reported as zero while positions are held",
+  "rating": null,
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "K3"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "r3_data_sheet_is_cover.xlsx",
+  "note": "a cover page named Data must not hide the real positions",
+  "rating": "Accept",
+  "exact_score": 100.0,
+  "gate": null,
+  "fails": [],
+  "passes": [
+   "S3",
+   "C1"
+  ],
+  "min_score": null,
+  "max_score": null
+ },
+ {
+  "file": "g1_corrupt.xlsx",
+  "note": "not a workbook at all",
+  "rating": "Reject",
+  "exact_score": 0.0,
+  "gate": "G1",
+  "fails": [],
+  "passes": [],
+  "min_score": null,
+  "max_score": null
+ }
+]
