@@ -9,7 +9,8 @@ from ..scorer import FileScore
 
 SUMMARY_COLUMNS = ['file', 'score', 'rating', 'version', 'positions', 'columns_mapped',
                    'structure', 'completeness', 'validity', 'consistency',
-                   'gates', 'not_scored', 'remarks']
+                   'gates', 'not_scored', 'tab_found_in', 'missing_columns', 'extra_columns',
+                   'renamed_columns', 'mandatory_blanks', 'other_issues']
 
 
 def write_csv(path: str, scores: List[FileScore]) -> str:

@@ -5,7 +5,7 @@ import collections
 import html
 from typing import List
 
-from ..remarks import gate_reference
+from ..remarks import FINDING_LABELS, column_findings, gate_reference
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
 BAND_COLOUR = {'Accept': '#2e7d32', 'Minor fixes': '#b58100',
@@ -35,6 +35,11 @@ td.clip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 td.wrap{white-space:normal;word-break:break-word;vertical-align:top;line-height:1.35}
 td.top{vertical-align:top}
 .gate{font-weight:600;white-space:nowrap}
+.tab{display:inline-block;background:#ddebf7;color:#1f3864;font-weight:600;border-radius:3px;padding:0 5px}
+.f{margin:0 0 3px}.f b{font-weight:600}
+.f.missing b{background:#fcd5b4}.f.extra b{background:#fff2cc}
+.f.renamed b{background:#ffeb9c}.f.blanks b{background:#ffc7CE}
+.f b{padding:0 4px;border-radius:2px}
 .track{background:#f1f1f1;border-radius:3px;height:14px;width:100%}
 .bar{height:14px;border-radius:3px;display:block}
 .pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10.5px;color:#fff;
@@ -144,12 +149,24 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
                    '<colgroup><col style="width:24%"><col style="width:54px">'
                    '<col style="width:92px"><col></colgroup>'
                    '<tr><th>File</th><th class="n">Score</th><th>Rating</th>'
-                   '<th>Remarks: what is wrong</th></tr>')
+                   '<th>Findings against the V7 template</th></tr>')
         for s in shown:
+            find = column_findings(s)
+            cell = []
+            if s.sheet:
+                cell.append('<div class="f">Tab: <span class="tab">%s</span></div>' % html.escape(s.sheet))
+            for key, label in FINDING_LABELS:
+                items = find[key]
+                if items:
+                    more = ' and %d more' % (len(items) - 6) if len(items) > 6 else ''
+                    cell.append('<div class="f %s"><b>%s (%d)</b> %s%s</div>'
+                                % (key, label, len(items),
+                                   html.escape('; '.join(items[:6])), more))
+            if s.remarks and s.remarks != 'No issues found.':
+                cell.append('<div class="f">%s</div>' % html.escape(s.remarks))
             out.append('<tr><td class="wrap top">%s</td><td class="n top">%.1f</td>'
                        '<td class="top">%s</td><td class="wrap">%s</td></tr>'
-                       % (html.escape(s.filename), s.score, _pill(s.rating),
-                          html.escape(s.remarks)))
+                       % (html.escape(s.filename), s.score, _pill(s.rating), ''.join(cell)))
         out.append('</table>')
         if len(need) > len(shown):
             out.append('<div style="color:#888;font-size:10.5px;margin-top:3px">%d more files '

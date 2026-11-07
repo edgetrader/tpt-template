@@ -60,63 +60,72 @@ def _gate_plain(gate: str) -> str:
     return gate.split(': ', 1)[1] if ': ' in gate else gate
 
 
-# --------------------------------------------------------------------------- remarks
+# --------------------------------------------------------------------------- findings
 
-def build_remarks(fs, limit: int = 6) -> str:
-    """One short paragraph on what is wrong with this file, in plain words."""
-    # Files that were zeroed before any check ran.
+FINDING_LABELS = [('missing', 'Missing columns'), ('extra', 'Extra columns'),
+                  ('renamed', 'Renamed columns'), ('blanks', 'Mandatory columns with blanks')]
+
+
+def _clip(text, n: int = 50) -> str:
+    text = _pretty(text)
+    return text if len(text) <= n else text[:n - 1].rstrip() + '\u2026'
+
+
+def column_findings(fs) -> dict:
+    """Lists of short items for the four column-level findings.
+
+    A file that is not recognisable as a TPT (gate G2) gets none: every column
+    would be "missing" and the lists would only be noise.
+    """
+    if any(g.startswith('G2') for g in fs.gates):
+        return {'missing': [], 'extra': [], 'renamed': [], 'blanks': []}
+    missing = ['%s (mandatory)' % _pretty(n) for n in fs.missing_columns]
+    missing += [_pretty(n) for n in fs.missing_optional]
+    return {
+        'missing': missing,
+        'extra': [_clip(n) for n in fs.extra_columns],
+        'renamed': ["%s -> %s" % (_clip(a), _pretty(b)) for a, b in fs.renamed_columns],
+        'blanks': ['%s: %d of %d blank' % (_pretty(n), e, t) for n, e, t in fs.blank_mandatory],
+    }
+
+
+def bullets(items: List[str], limit: int = 12) -> str:
+    """One item per line; long lists are cut with a pointer to the full list."""
+    items = list(items)
+    if not items:
+        return ''
+    lines = ['\u2022 ' + i for i in items[:limit]]
+    if len(items) > limit:
+        lines.append('+ %d more (see Column findings)' % (len(items) - limit))
+    return '\n'.join(lines)
+
+
+def build_remarks(fs) -> str:
+    """A short note on everything that is not a column-level finding."""
     zero = next((g for g in fs.gates if g.startswith(('G1', 'G2', 'G3'))), None)
     if zero:
         code = zero[:2]
-        why = _gate_plain(zero)
         if code == 'G1':
-            return 'Could not be opened (%s). Ask the GP to resend a valid, unprotected Excel file.' % fs.error
+            return 'Could not be opened. Ask the GP to resend a valid, unprotected Excel file.'
         if code == 'G2':
-            return ('Does not look like a TPT file: %s. The header may be missing, the table '
-                    'sideways, or the wrong file sent.' % why)
-        return 'Nothing to score: %s.' % why
+            return 'Not recognisable as a TPT file (%s).' % _gate_plain(zero)
+        return 'Nothing to score: %s.' % _gate_plain(zero)
 
     parts: List[str] = []
-
     if fs.version != 'V7':
-        parts.append('Wrong template version: this looks like %s, not V7.' % fs.version)
-
-    if fs.missing_columns:
-        names = [_pretty(n) for n in fs.missing_columns]
-        parts.append('%d mandatory column%s missing: %s.'
-                     % (len(names), '' if len(names) == 1 else 's', _listing(names, limit)))
-
-    if fs.renamed_columns:
-        pairs = ["'%s' should read '%s'" % (_pretty(a), _pretty(b)) for a, b in fs.renamed_columns]
-        parts.append('%d column name%s differ%s slightly from the template: %s.'
-                     % (len(pairs), '' if len(pairs) == 1 else 's', 's' if len(pairs) == 1 else '',
-                        _listing(pairs, 4)))
-
-    if fs.duplicate_columns:
-        parts.append('Repeated column%s: %s.' % ('' if len(fs.duplicate_columns) == 1 else 's',
-                                                _listing([_pretty(n) for n in fs.duplicate_columns], 4)))
-
-    if fs.extra_columns:
-        parts.append('%d extra column%s not in the template: %s.'
-                     % (len(fs.extra_columns), '' if len(fs.extra_columns) == 1 else 's',
-                        _listing([_pretty(n) for n in fs.extra_columns], 4)))
-
+        parts.append('Template is %s, not V7' % fs.version)
     if fs.header_cell and fs.header_cell != 'A1':
-        parts.append('The table starts at %s instead of A1.' % fs.header_cell)
-
+        parts.append('table starts at %s, not A1' % fs.header_cell)
     s7 = fs.checks.get('S7')
     if s7 is not None and s7.n_affected:
-        parts.append('%d row%s below the header are not positions (totals, notes or blank lines).'
-                     % (s7.n_affected, '' if s7.n_affected == 1 else 's'))
-
-    # Content problems: the biggest remaining point losses, except those already told above.
-    told = {'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'}
-    content = [c for c in fs.top_fixes if c.id not in told and c.points_lost >= 0.5][:3]
-    for c in content:
-        detail = re.sub(r'\s*\(\d+ conditions? not evaluated\)', '', c.detail).rstrip('. ')
-        parts.append('%s: %s.' % (c.title, detail))
-
-    if any(g.startswith('G6') for g in fs.gates) and not parts:
-        parts.append(_gate_plain(next(g for g in fs.gates if g.startswith('G6'))) + '.')
-
-    return ' '.join(parts) if parts else 'No issues found.'
+        parts.append('%d non-position rows (totals, notes, blanks)' % s7.n_affected)
+    if fs.duplicate_columns:
+        parts.append('%d repeated columns' % len(fs.duplicate_columns))
+    told = {'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'C1'}
+    for c in [c for c in fs.top_fixes if c.id not in told and c.points_lost >= 0.5][:3]:
+        parts.append(c.title[0].lower() + c.title[1:] if c.title[:2].isupper() is False else c.title)
+    if not parts:
+        findings = column_findings(fs)
+        return '' if any(findings.values()) else 'No issues found.'
+    text = '; '.join(parts)
+    return text[0].upper() + text[1:] + '.'

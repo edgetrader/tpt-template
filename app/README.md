@@ -19,7 +19,7 @@ it, in a timestamped folder holding:
 | `summary.xlsx` | One sheet: the summary table with a Remarks column, and the gate codes explained above it |
 | `summary.csv` | Same table, only when you pass `--csv` |
 
-Every summary table has a **Remarks** column that says in plain words what is wrong with the file: which mandatory columns are missing, which column names differ from the template (and what they should read), repeated or extra columns, a table that does not start at A1, and the biggest content problems.
+The summary table lists, per file: the **tab** the template was found in, **missing columns** (mandatory ones flagged), **extra columns** not in V7, **renamed columns** (found -> template name), **mandatory columns with blanks** (blank cells out of applicable rows), and a short **other issues** line. The full lists are on the *Column findings* sheet.
 
 ## Installing
 

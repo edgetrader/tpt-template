@@ -48,6 +48,7 @@ class CheckResult:
     detail: str = ''
     issues: List[Issue] = dc_field(default_factory=list)
     evaluated: bool = True
+    by_column: Dict[str, List[int]] = dc_field(default_factory=dict)   # column -> [empty, applicable]
 
     @property
     def status(self) -> str:

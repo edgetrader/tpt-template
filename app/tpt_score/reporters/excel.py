@@ -10,6 +10,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter as CL
 
 from ..checks import CHECKS
+from ..remarks import FINDING_LABELS, bullets, column_findings
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
 HEAD_FILL = PatternFill('solid', fgColor='1F3864')
@@ -17,6 +18,12 @@ HEAD_FONT = Font(bold=True, color='FFFFFF', size=10)
 TITLE_FONT = Font(bold=True, size=13)
 SUB_FONT = Font(italic=True, color='595959', size=9)
 BOLD = Font(bold=True)
+TAB_FONT = Font(bold=True, color='1F3864')
+TAB_FILL = PatternFill('solid', fgColor='DDEBF7')
+FINDING_FILL = {'missing': PatternFill('solid', fgColor='FCD5B4'),
+                'extra': PatternFill('solid', fgColor='FFF2CC'),
+                'renamed': PatternFill('solid', fgColor='FFEB9C'),
+                'blanks': PatternFill('solid', fgColor='FFC7CE')}
 
 RATING_FILL = {
     'Accept': PatternFill('solid', fgColor='C6EFCE'),
@@ -61,6 +68,8 @@ def write_workbook(path: str, scores: List[FileScore], cfg, run_info: dict):
 
     _run_summary(wb.active, scores, cfg, run_info)
     used.add(wb.active.title.lower())
+    _column_findings_sheet(wb.create_sheet('Column findings'), scores)
+    used.add('column findings')
     _gate_reference(wb.create_sheet('Gate reference'), cfg)
     used.add('gate reference')
     _dimension_scores(wb.create_sheet('Dimension scores'), scores)
@@ -133,14 +142,28 @@ def _run_summary(ws, scores, cfg, run_info):
     start = r
     _header(ws, r, ['File', 'Score', 'Rating', 'Version', 'Positions', 'Columns mapped',
                     'Structure', 'Completeness', 'Validity', 'Consistency',
-                    'Gates applied', 'Could not be read', 'Remarks'],
-            [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 44, 40, 90])
+                    'Gates applied', 'Could not be read', 'Tab found in', 'Missing columns',
+                    'Extra columns', 'Renamed columns (found -> template)',
+                    'Mandatory columns with blanks', 'Other issues'],
+            [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 30, 24, 22, 44, 30, 50, 44, 44])
     ws.freeze_panes = None
     r += 1
     for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
-        for i, v in enumerate(s.as_summary_row(), start=1):
-            ws.cell(r, i, v)
-        ws.cell(r, 13).alignment = Alignment(wrap_text=True, vertical='top')
+        find = column_findings(s)
+        row = s.as_summary_row()[:12] + [s.sheet] + [bullets(find[k]) for k in
+                                                       ('missing', 'extra', 'renamed', 'blanks')] + [s.remarks]
+        for i, v in enumerate(row, start=1):
+            c = ws.cell(r, i, v)
+            if i >= 11:
+                c.alignment = Alignment(wrap_text=True, vertical='top')
+        ws.cell(r, 13).font = TAB_FONT
+        if s.sheet:
+            ws.cell(r, 13).fill = TAB_FILL
+        for col, key in ((14, 'missing'), (15, 'extra'), (16, 'renamed'), (17, 'blanks')):
+            if find[key]:
+                ws.cell(r, col).fill = FINDING_FILL[key]
+        most = max([len(find[k]) for k in find] + [1])
+        ws.row_dimensions[r].height = min(15 * min(most, 13) + 3, 210)
         ws.cell(r, 3).fill = RATING_FILL.get(s.rating, STATUS_FILL['Not evaluated'])
         ws.cell(r, 2).number_format = '0.0'
         r += 1
@@ -149,13 +172,30 @@ def _run_summary(ws, scores, cfg, run_info):
                                       ColorScaleRule(start_type='num', start_value=0, start_color='F8696B',
                                                      mid_type='num', mid_value=80, mid_color='FFEB84',
                                                      end_type='num', end_value=100, end_color='63BE7B'))
-    ws.auto_filter.ref = 'A%d:M%d' % (start, max(start, r - 1))
+    ws.auto_filter.ref = 'A%d:R%d' % (start, max(start, r - 1))
+
+
+def _column_findings_sheet(ws, scores):
+    """One row per column finding: the full lists behind the summary table."""
+    _header(ws, 1, ['File', 'Tab found in', 'Finding', 'Column'], [46, 24, 34, 90])
+    labels = dict(FINDING_LABELS)
+    r = 2
+    for s in sorted(scores, key=lambda x: x.filename):
+        for key, items in column_findings(s).items():
+            for item in items:
+                ws.cell(r, 1, s.filename)
+                ws.cell(r, 2, s.sheet)
+                ws.cell(r, 3, labels[key]).fill = FINDING_FILL[key]
+                ws.cell(r, 4, item)
+                r += 1
+    ws.auto_filter.ref = 'A1:D%d' % max(1, r - 1)
 
 
 def write_summary_xlsx(path: str, scores: List[FileScore], cfg, run_info: dict):
     """A standalone summary workbook: one sheet, with the gate codes explained."""
     wb = openpyxl.Workbook()
     _run_summary(wb.active, scores, cfg, run_info)
+    _column_findings_sheet(wb.create_sheet('Column findings'), scores)
     wb.save(path)
     return path
 

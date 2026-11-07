@@ -41,8 +41,11 @@ def c1(ctx: Context) -> CheckResult:
             if verdict is False:
                 continue                      # not applicable to this CIC category
             applicable += 1
+            col = res.by_column.setdefault(t, [0, 0])
+            col[1] += 1
             if is_blank(ctx.value(row, t)):
                 affected += 1
+                col[0] += 1
                 res.add(ctx.sheet_row(i), ctx.column_name(t), '(empty)', 'a value')
     res.n_applicable, res.n_affected = applicable, affected
     res.f = share(affected, applicable)

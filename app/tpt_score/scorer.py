@@ -10,6 +10,7 @@ from .checks import Context, run_all
 from .config import Config
 from .loader import UnreadableFile, load_table
 from .mapper import detect_version, map_columns
+from .remarks import column_findings
 
 DIMENSIONS = ['structure', 'completeness', 'validity', 'consistency']
 DIMENSION_LABEL = {'structure': 'Structure', 'completeness': 'Completeness',
@@ -70,6 +71,8 @@ class FileScore:
     renamed_columns: List[Any] = dc_field(default_factory=list)       # (header found, template name)
     duplicate_columns: List[str] = dc_field(default_factory=list)
     extra_columns: List[str] = dc_field(default_factory=list)
+    missing_optional: List[str] = dc_field(default_factory=list)      # non-mandatory fields absent
+    blank_mandatory: List[Any] = dc_field(default_factory=list)       # (column, empty cells, applicable cells)
 
     @property
     def remarks(self) -> str:
@@ -92,21 +95,22 @@ class FileScore:
                 round(self.dimensions['completeness'].score, 1) if self.dimensions else '',
                 round(self.dimensions['validity'].score, 1) if self.dimensions else '',
                 round(self.dimensions['consistency'].score, 1) if self.dimensions else '',
-                '; '.join(self.gates), self.error, self.remarks]
+                '; '.join(self.gates), self.error, self.sheet,
+                *[' | '.join(column_findings(self)[k]) for k in ('missing', 'extra', 'renamed', 'blanks')],
+                self.remarks]
 
 
 def _column_findings(cmap, fields) -> Dict[str, Any]:
     """Which columns are missing, renamed, repeated or extra, for the remarks."""
-    missing = []
-    for t in fields.mandatory_tokens:
-        if not cmap.has(t):
-            f = fields.get(t)
-            missing.append(f.name if f else t)
+    missing, optional = [], []
+    for f in fields.fields:
+        if not cmap.has(f.token):
+            (missing if f.mandatory else optional).append(f.name)
     renamed = []
     for c in cmap.renamed_columns:
         f = fields.get(c.token)
         renamed.append((str(c.header), f.name if f else c.token))
-    return dict(missing_columns=missing, renamed_columns=renamed,
+    return dict(missing_columns=missing, missing_optional=optional, renamed_columns=renamed,
                 duplicate_columns=[str(c.header) for c in cmap.duplicate_columns],
                 extra_columns=[str(c.header).strip() or '(blank header)'
                                for c in cmap.unknown_columns])
@@ -170,6 +174,13 @@ def score_file(path: str, fields, cfg: Config) -> FileScore:
 
     fs = FileScore(path=path, filename=os.path.basename(path), rules_version=cfg.rules_version,
                    scored_at=now, **fs_kw)
+    c1 = results.get('C1')
+    if c1 is not None:
+        for tok, (empty, total) in c1.by_column.items():
+            if empty:
+                f = fields.get(tok)
+                fs.blank_mandatory.append((f.name if f else tok, empty, total))
+        fs.blank_mandatory.sort(key=lambda x: -x[1])
     fs.fund_id = _first_value(ctx, '1')
     fs.fund_name = _first_value(ctx, '3')
 

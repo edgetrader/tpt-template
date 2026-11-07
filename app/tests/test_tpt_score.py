@@ -596,11 +596,13 @@ class TestEndToEndRun(unittest.TestCase):
                  '--no-timestamp', '--quiet'])
         self.assertFalse(os.path.exists(os.path.join(self.out, 'summary.csv')))
         wb = openpyxl.load_workbook(os.path.join(self.out, 'summary.xlsx'))
-        self.assertEqual(len(wb.sheetnames), 1)
+        self.assertEqual(len(wb.sheetnames), 2)
         cells = [str(c.value) for row in wb.active.iter_rows() for c in row if c.value is not None]
         for gate in ('G1', 'G2', 'G3', 'G4', 'G5', 'G6'):
             self.assertIn(gate, cells)
-        self.assertIn('Remarks', cells)
+        for head in ('Tab found in', 'Missing columns', 'Extra columns', 'Mandatory columns with blanks'):
+            self.assertIn(head, cells)
+        self.assertIn('Column findings', wb.sheetnames)
 
     def test_workbook_has_the_expected_sheets(self):
         import openpyxl
@@ -693,27 +695,39 @@ class TestRemarks(unittest.TestCase):
     def _score(self, name):
         return score(name)
 
+    def test_blank_mandatory_columns_are_counted(self):
+        fs = self._score('c1_empty_mandatory.xlsx')
+        self.assertTrue(fs.blank_mandatory)
+        name, empty, total = fs.blank_mandatory[0]
+        self.assertGreater(empty, 0)
+        self.assertLessEqual(empty, total)
+
+    def test_tab_name_is_recorded(self):
+        self.assertTrue(self._score('clean.xlsx').sheet)
+
     def test_clean_file_has_no_issues(self):
         self.assertEqual(self._score('clean.xlsx').remarks, 'No issues found.')
 
     def test_missing_columns_are_named(self):
         fs = self._score('s3_missing_mandatory.xlsx')
         self.assertTrue(fs.missing_columns)
-        self.assertIn('mandatory column', fs.remarks)
-        self.assertIn(fs.missing_columns[0].replace('_', ' '), fs.remarks)
+        from tpt_score.remarks import column_findings
+        self.assertTrue(any(i.endswith('(mandatory)') for i in column_findings(fs)['missing']))
+        self.assertIn(fs.missing_columns[0].replace('_', ' ') + ' (mandatory)', column_findings(fs)['missing'])
 
     def test_renamed_columns_show_both_names(self):
         fs = self._score('s4_renamed.xlsx')
         self.assertTrue(fs.renamed_columns)
         found, expected = fs.renamed_columns[0]
-        self.assertIn('should read', fs.remarks)
-        self.assertIn(expected.replace('_', ' '), fs.remarks)
+        from tpt_score.remarks import column_findings
+        self.assertTrue(any(expected.replace('_', ' ') in i and '->' in i
+                            for i in column_findings(fs)['renamed']))
 
     def test_offset_header_is_reported(self):
-        self.assertIn('instead of A1', self._score('s1_offset_c4.xlsx').remarks)
+        self.assertIn('not A1', self._score('s1_offset_c4.xlsx').remarks)
 
     def test_wrong_version_and_unreadable(self):
-        self.assertIn('Wrong template version', self._score('g4_v6_template.xlsx').remarks)
+        self.assertIn('not V7', self._score('g4_v6_template.xlsx').remarks)
         self.assertIn('Could not be opened', self._score('g1_corrupt.xlsx').remarks)
 
     def test_gate_reference_covers_all_gates(self):
@@ -730,11 +744,12 @@ class TestRemarks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             write_csv(os.path.join(d, 's.csv'), scores)
             rows = list(csv.DictReader(open(os.path.join(d, 's.csv'), encoding='utf-8-sig')))
-            self.assertIn('remarks', rows[0])
+            self.assertIn('other_issues', rows[0])
+            self.assertIn('missing_columns', rows[0])
             write_html(os.path.join(d, 'r.html'), scores, self.cfg, {})
             page = open(os.path.join(d, 'r.html'), encoding='utf-8').read()
             self.assertIn('Gates: hard rules', page)
-            self.assertIn('Wrong template version', page)
+            self.assertIn('not V7', page)
 
 
 if __name__ == '__main__':
