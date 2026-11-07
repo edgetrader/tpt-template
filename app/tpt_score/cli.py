@@ -85,6 +85,23 @@ def find_files(root: str, pattern: str = '*', recursive: bool = False) -> List[s
     return sorted(found)
 
 
+def input_label(input_path: str, given: str = None) -> str:
+    """The output subfolder name for an input: the --in path as typed when it is
+    relative (so "2026/Q4" gives output/2026/Q4), otherwise the folder's own name.
+    A single file is filed under the folder it sits in."""
+    path = input_path
+    if os.path.isfile(path):
+        path = os.path.dirname(os.path.abspath(path))
+        given = None
+    if given and not os.path.isabs(os.path.expanduser(given)) and not given.startswith('..'):
+        parts = [p for p in os.path.normpath(given).replace('\\', '/').split('/') if p not in ('', '.')]
+    else:
+        parts = [os.path.basename(os.path.normpath(os.path.abspath(path)))]
+    clean = [''.join(ch if ch.isalnum() or ch in ' -_.()' else '_' for ch in p).strip() or 'input'
+             for p in parts]
+    return os.path.join(*clean) if clean else 'input'
+
+
 def resolve_template(cfg: Config, given: str, input_path: str) -> str:
     """Find the V7 workbook: --template, then the config path, tried next to the
     input folder and the working directory."""
@@ -132,6 +149,7 @@ def run(args=None) -> int:
     except SettingsError as exc:
         print('settings error: %s' % exc, file=sys.stderr)
         return 2
+    given_in = opts.input
     # input_folder is the root: --in names a folder under it, or the root itself
     # when --in is left out. An absolute --in is used as given.
     if not opts.input:
@@ -199,9 +217,12 @@ def run(args=None) -> int:
             print('  [%*d/%d] %-52s %5.1f  %s'
                   % (len(str(len(files))), n, len(files), s.filename[:52], s.score, s.rating))
 
+    # Reports go to <output>/<input folder name>/run_<timestamp>/, so runs over
+    # different folders stay apart and each folder keeps its own history.
     outdir = opts.output
     if not opts.no_timestamp:
-        outdir = os.path.join(outdir, started.strftime('run_%Y%m%d_%H%M%S'))
+        outdir = os.path.join(outdir, input_label(opts.input, given_in),
+                              started.strftime('run_%Y%m%d_%H%M%S'))
     os.makedirs(outdir, exist_ok=True)
 
     run_info = {

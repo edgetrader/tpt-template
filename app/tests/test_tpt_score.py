@@ -895,8 +895,9 @@ class TestManagementSummary(unittest.TestCase):
 
     def _run(self, *extra):
         cli.run(['--in', DATA, '--out', self.out, '--template', TEMPLATE, '--quiet'] + list(extra))
-        runs = sorted(d for d in os.listdir(self.out) if d.startswith('run_'))
-        return os.path.join(self.out, runs[-1])
+        base = os.path.join(self.out, os.path.basename(DATA))     # output/<input folder>/run_...
+        runs = sorted(d for d in os.listdir(base) if d.startswith('run_'))
+        return os.path.join(base, runs[-1])
 
     def test_page_and_stats_are_written(self):
         d = self._run()
@@ -1106,6 +1107,21 @@ class TestSettings(unittest.TestCase):
         rc = cli.run(['--settings', path, '--in', DATA, '--out', out, '--template', TEMPLATE,
                       '--quiet', '--no-timestamp'])
         self.assertIn(rc, (0, 1))
+
+    def test_reports_go_under_the_input_folder_name(self):
+        root = os.path.dirname(DATA)
+        path = self._write('input_folder: %s\n' % root)
+        out = os.path.join(self.dir, 'out')
+        cli.run(['--settings', path, '--in', os.path.basename(DATA), '--out', out,
+                 '--template', TEMPLATE, '--quiet'])
+        sub = os.path.join(out, os.path.basename(DATA))
+        runs = [d for d in os.listdir(sub) if d.startswith('run_')]
+        self.assertEqual(len(runs), 1)
+        self.assertTrue(os.path.isfile(os.path.join(sub, runs[0], 'summary.xlsx')))
+        self.assertEqual(cli.input_label(DATA, 'Q4/2026'), os.path.join('Q4', '2026'))
+        self.assertEqual(cli.input_label(DATA, None), os.path.basename(DATA))
+        self.assertEqual(cli.input_label(os.path.join(DATA, 'clean.xlsx'), 'x.xlsx'),
+                         os.path.basename(DATA))
 
     def test_no_input_anywhere_is_a_clear_error(self):
         self.assertEqual(cli.run(['--quiet', '--template', TEMPLATE]), 2)
