@@ -1121,7 +1121,7 @@ class TestSettings(unittest.TestCase):
                  '--template', TEMPLATE, '--quiet'])
         self.assertFalse(os.path.exists(os.path.join(sub, 'summary.csv')))
         self.assertTrue(os.path.isfile(os.path.join(sub, 'summary.xlsx')))
-        self.assertEqual(cli.input_label(DATA, 'Q4/2026'), os.path.join('Q4', '2026'))
+        self.assertEqual(cli.input_label(os.path.join(self.dir, '2026', 'Q4'), '2026/Q4'), 'Q4')
         self.assertEqual(cli.input_label(DATA, None), os.path.basename(DATA))
         self.assertEqual(cli.input_label(os.path.join(DATA, 'clean.xlsx'), 'x.xlsx'),
                          os.path.basename(DATA))

@@ -90,20 +90,14 @@ def find_files(root: str, pattern: str = '*', recursive: bool = False) -> List[s
 
 
 def input_label(input_path: str, given: str = None) -> str:
-    """The output subfolder name for an input: the --in path as typed when it is
-    relative (so "2026/Q4" gives output/2026/Q4), otherwise the folder's own name.
-    A single file is filed under the folder it sits in."""
-    path = input_path
+    """The output subfolder for an input: the name of the --in folder itself, so
+    --in data gives output/data and --in 2026/Q4 gives output/Q4. A single file is
+    filed under the folder it sits in."""
+    path = os.path.abspath(input_path)
     if os.path.isfile(path):
-        path = os.path.dirname(os.path.abspath(path))
-        given = None
-    if given and not os.path.isabs(os.path.expanduser(given)) and not given.startswith('..'):
-        parts = [p for p in os.path.normpath(given).replace('\\', '/').split('/') if p not in ('', '.')]
-    else:
-        parts = [os.path.basename(os.path.normpath(os.path.abspath(path)))]
-    clean = [''.join(ch if ch.isalnum() or ch in ' -_.()' else '_' for ch in p).strip() or 'input'
-             for p in parts]
-    return os.path.join(*clean) if clean else 'input'
+        path = os.path.dirname(path)
+    name = os.path.basename(os.path.normpath(path))
+    return ''.join(ch if ch.isalnum() or ch in ' -_.()' else '_' for ch in name).strip() or 'input'
 
 
 def resolve_template(cfg: Config, given: str, input_path: str) -> str:
