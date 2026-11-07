@@ -5,6 +5,7 @@ import os
 from typing import List
 
 import openpyxl
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.formatting.rule import ColorScaleRule
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter as CL
@@ -56,15 +57,52 @@ def _header(ws, row, labels, widths=None):
 
 
 def _safe_sheet_name(name: str, used) -> str:
-    base = ''.join(ch for ch in name if ch not in '[]:*?/\\').strip()[:28]
-    if not base:
-        base = 'file'                 # Excel refuses an empty sheet name
+    """A sheet name Excel accepts: no []:*?/\\, no apostrophe at either end, not
+    "History" (reserved), at most 31 characters, unique."""
+    base = ''.join(ch for ch in name if ch not in '[]:*?/\\' and ch >= ' ').strip()
+    base = base.strip("'").strip()[:28]
+    if not base or base.lower() == 'history':
+        base = (base + ' file').strip() if base else 'file'   # Excel refuses these names
     out, n = base, 1
     while out.lower() in used:
         out = '%s~%d' % (base[:26], n)
         n += 1
     used.add(out.lower())
     return out
+
+
+def _finalise(wb):
+    """Make every cell safe to open in Excel without a repair prompt.
+
+    Values copied from GP files can start with "=", which openpyxl would write
+    as a formula that Excel cannot read; they can also hold control characters
+    the XML format does not allow, or run past Excel's 32,767-character limit.
+    """
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for c in row:
+                v = c.value
+                if not isinstance(v, str):
+                    continue
+                clean = ILLEGAL_CHARACTERS_RE.sub('', v)
+                if len(clean) > 32767:
+                    clean = clean[:32760] + ' [...]'
+                if clean != v:
+                    c.value = clean
+                if clean.startswith('='):
+                    c.data_type = 's'          # text, never a formula
+        for key, dim in list(ws.row_dimensions.items()):
+            if dim.height is not None and dim.height > 409:
+                dim.height = 409               # Excel's maximum row height
+        for key, dim in list(ws.column_dimensions.items()):
+            if dim.width is not None and dim.width > 255:
+                dim.width = 255
+
+
+def save(wb, path: str) -> str:
+    _finalise(wb)
+    wb.save(path)
+    return path
 
 
 def write_workbook(path: str, scores: List[FileScore], cfg, run_info: dict):
@@ -79,6 +117,8 @@ def write_workbook(path: str, scores: List[FileScore], cfg, run_info: dict):
     used.add('accepted files')
     _gate_reference(wb.create_sheet('Gate reference'), cfg)
     used.add('gate reference')
+    _check_reference(wb.create_sheet('Check reference'), cfg)
+    used.add('check reference')
     _dimension_scores(wb.create_sheet('Dimension scores'), scores)
     used.add('dimension scores')
     _check_matrix(wb.create_sheet('Check matrix'), scores)
@@ -93,7 +133,7 @@ def write_workbook(path: str, scores: List[FileScore], cfg, run_info: dict):
         name = _safe_sheet_name(os.path.splitext(fscore.filename)[0], used)
         _scorecard(wb.create_sheet(name), fscore, cfg)
 
-    wb.save(path)
+    save(wb, path)
     return path
 
 
@@ -227,7 +267,7 @@ def write_accepted_xlsx(path: str, scores: List[FileScore]) -> str:
     """accepted_files.xlsx: the files rated Accept or Minor fixes, with full paths."""
     wb = openpyxl.Workbook()
     _usable_files_sheet(wb.active, scores)
-    wb.save(path)
+    save(wb, path)
     return path
 
 
@@ -253,8 +293,27 @@ def write_summary_xlsx(path: str, scores: List[FileScore], cfg, run_info: dict):
     _run_summary(wb.active, scores, cfg, run_info)
     _column_findings_sheet(wb.create_sheet('Column findings'), scores)
     _usable_files_sheet(wb.create_sheet('Accepted files'), scores)
-    wb.save(path)
+    _check_reference(wb.create_sheet('Check reference'), cfg)
+    save(wb, path)
     return path
+
+
+def _check_reference(ws, cfg):
+    from ..remarks import check_reference
+    ws['A1'] = 'Checks: what each check code means'
+    ws['A1'].font = TITLE_FONT
+    ws['A2'] = ('Weight is the check\'s share of its dimension (each dimension adds up to 100). '
+                'A critical check that fails caps the score at %g (gate G6).'
+                % float(cfg.gates.get('critical_failure_cap', 94)))
+    ws['A2'].font = SUB_FONT
+    _header(ws, 4, ['Code', 'Dimension', 'Check', 'Weight', 'Critical', 'What it means'],
+            [8, 20, 50, 9, 9, 95])
+    r = 5
+    for row in check_reference(cfg):
+        for i, v in enumerate(row, start=1):
+            ws.cell(r, i, v).alignment = Alignment(wrap_text=True, vertical='top')
+        ws.cell(r, 1).font = BOLD
+        r += 1
 
 
 def _gate_reference(ws, cfg):

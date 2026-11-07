@@ -621,7 +621,7 @@ class TestEndToEndRun(unittest.TestCase):
                  '--no-timestamp', '--quiet'])
         self.assertFalse(os.path.exists(os.path.join(self.out, 'summary.csv')))
         wb = openpyxl.load_workbook(os.path.join(self.out, 'summary.xlsx'))
-        self.assertEqual(len(wb.sheetnames), 3)
+        self.assertEqual(wb.sheetnames, ['Run summary', 'Column findings', 'Accepted files', 'Check reference'])
         cells = [str(c.value) for row in wb.active.iter_rows() for c in row if c.value is not None]
         for gate in ('G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7'):
             self.assertIn(gate, cells)
@@ -1109,6 +1109,98 @@ class TestSettings(unittest.TestCase):
 
     def test_no_input_anywhere_is_a_clear_error(self):
         self.assertEqual(cli.run(['--quiet', '--template', TEMPLATE]), 2)
+
+
+# --------------------------------------------------------------------------- excel safety
+import re as _re_x
+import zipfile as _zip
+from xml.etree import ElementTree as ET
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+
+
+def excel_problems(path):
+    problems = []
+    with _zip.ZipFile(path) as z:
+        for n in z.namelist():
+            if n.endswith('.xml') or n.endswith('.rels'):
+                data = z.read(n)
+                try:
+                    ET.fromstring(data)
+                except ET.ParseError as e:
+                    problems.append('%s: XML parse error %s' % (n, e))
+                if n.startswith('xl/worksheets/') and b'<f>' in data:
+                    problems.append('%s: %d formula cells' % (n, data.count(b'<f>')))
+    wb = __import__("openpyxl").load_workbook(path)
+    names = set()
+    for ws in wb.worksheets:
+        t = ws.title
+        if len(t) > 31 or _re_x.search(r'[\[\]:*?/\\]', t) or t.lower() in names or t.startswith("'") or t.endswith("'") or t.lower() == 'history':
+            problems.append('bad sheet name %r' % t)
+        names.add(t.lower())
+        for row in ws.iter_rows():
+            for c in row:
+                v = c.value
+                if isinstance(v, str):
+                    if ILLEGAL_CHARACTERS_RE.search(v):
+                        problems.append('%s!%s illegal characters' % (t, c.coordinate))
+                    if len(v) > 32767:
+                        problems.append('%s!%s string too long (%d)' % (t, c.coordinate, len(v)))
+                    if c.data_type == 'f':
+                        problems.append('%s!%s written as formula: %r' % (t, c.coordinate, v[:40]))
+        if ws.auto_filter.ref:
+            m = _re_x.fullmatch(r'([A-Z]+)(\d+):([A-Z]+)(\d+)', ws.auto_filter.ref)
+            if not m or int(m.group(4)) < int(m.group(2)):
+                problems.append('%s bad autofilter %s' % (t, ws.auto_filter.ref))
+        for rng in ws.conditional_formatting:
+            ref = str(rng.sqref)
+            m = _re_x.fullmatch(r'([A-Z]+)(\d+):([A-Z]+)(\d+)', ref)
+            if m and int(m.group(4)) < int(m.group(2)):
+                problems.append('%s bad conditional format range %s' % (t, ref))
+    return problems
+
+
+
+class TestExcelOutputIsClean(unittest.TestCase):
+    """Every workbook must open in Excel without a repair prompt."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix='tpt_xl_')
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+
+    def _awkward_inputs(self):
+        """GP files whose content and names have broken workbooks elsewhere."""
+        import openpyxl
+        folder = os.path.join(self.dir, 'in')
+        os.makedirs(folder)
+        wb = openpyxl.load_workbook(os.path.join(DATA, 'clean.xlsx'))
+        ws = wb.active
+        head = [c.value for c in ws[1]]
+        c22 = head.index(next(h for h in head if str(h).startswith('22_'))) + 1
+        c3 = head.index(next(h for h in head if str(h).startswith('3_'))) + 1
+        ws.cell(2, c22).value = '=SUM(A1:A3)'
+        ws.cell(2, c22).data_type = 's'
+        ws.cell(3, c3).value = 'x' * 40000
+        for name in ('History.xlsx', "'quoted'.xlsx", 'a[1]b.xlsx', 'formula.xlsx'):
+            wb.save(os.path.join(folder, name))
+        return folder
+
+    def test_reports_have_no_excel_problems(self):
+        folder = self._awkward_inputs()
+        out = os.path.join(self.dir, 'out')
+        cli.run(['--in', folder, '--out', out, '--template', TEMPLATE, '--quiet', '--no-timestamp'])
+        cli.run(['--in', DATA, '--out', os.path.join(self.dir, 'out2'), '--template', TEMPLATE,
+                 '--quiet', '--no-timestamp'])
+        books = [os.path.join(d, f) for d in (out, os.path.join(self.dir, 'out2'))
+                 for f in ('summary.xlsx', 'TPT_scorecards.xlsx', 'accepted_files.xlsx')]
+        for book in books:
+            self.assertEqual(excel_problems(book), [], book)
+
+    def test_check_reference_covers_every_check(self):
+        from tpt_score.remarks import check_reference
+        rows = check_reference(_CFG)
+        self.assertEqual([r[0] for r in rows][:3], ['S1', 'S2', 'S3'])
+        self.assertEqual({r[0] for r in rows}, set(CHECKS))
+        self.assertTrue(all(r[5] for r in rows), 'every check needs a plain explanation')
 
 
 if __name__ == '__main__':

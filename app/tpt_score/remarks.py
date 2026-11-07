@@ -63,6 +63,49 @@ def _gate_plain(gate: str) -> str:
     return gate.split(': ', 1)[1] if ': ' in gate else gate
 
 
+# --------------------------------------------------------------------------- checks
+
+CHECK_MEANING = {
+    'S1': 'The table should start in cell A1 with the header row; title rows or an offset table are recovered but charged.',
+    'S2': 'The file must be on the FinDatEx TPT V7 template, not V6 or V8.',
+    'S3': 'Every column V7 marks mandatory (M) must be present.',
+    'S4': 'Column headers should carry the V7 names; typos and short labels are matched but charged.',
+    'S5': 'Each V7 field should appear once; repeated columns make it unclear which one to use.',
+    'S6': 'Columns that are not V7 fields (comments, internal references) should be left out.',
+    'S7': 'Below the header there should be positions only: no totals, notes, blank or repeated header rows.',
+    'C1': 'Mandatory fields must hold a value on every position they apply to.',
+    'C2': 'Conditional fields must be filled where their condition applies (for example the CIC category).',
+    'C3': 'Every position needs an instrument identifier (field 14) and a CIC code (field 12).',
+    'C4': 'Fund-level fields (fund ID, name, currency, NAV, dates) must be on every row.',
+    'C5': 'Placeholders such as N/A, TBC, - or 0000 must not stand in for real values.',
+    'V1': 'Numeric fields must hold numbers, not text or Excel errors such as #REF!.',
+    'V2': 'Dates must be valid and written in one format, ideally yyyy-mm-dd.',
+    'V3': 'Coded fields must use the allowed codes: CIC, ISO currency, ISO country, Y/N flags.',
+    'V4': 'ISIN and LEI codes must pass their check digits.',
+    'V5': 'Numbers must be in a sensible range and scale (for example weights as 0.25, not 25).',
+    'V6': 'Text must be clean: no stray spaces, lost leading zeros or inconsistent case.',
+    'K1': 'Fund-level fields must hold the same value on every row.',
+    'K2': 'Valuation weights (field 26) must add up to 100%.',
+    'K3': 'Market values in portfolio currency must add up to the fund NAV (field 5).',
+    'K4': 'Quotation and portfolio-currency market values must agree through one FX rate per currency.',
+    'K5': 'No position may appear twice.',
+    'K6': 'The valuation date must not be after the reporting date, and the data must not be stale.',
+}
+DIMENSION_OF = {'S': 'Structure', 'C': 'Completeness', 'V': 'Validity and format', 'K': 'Consistency'}
+
+
+def check_reference(cfg) -> List[Tuple[str, str, str, str, str, str]]:
+    """Rows of (code, dimension, check, weight, critical, what it means)."""
+    from .checks import CHECKS
+    order = {'S': 0, 'C': 1, 'V': 2, 'K': 3}
+    rows = []
+    for cid in sorted(CHECKS, key=lambda c: (order.get(c[0], 9), int(c[1:]))):
+        rows.append((cid, DIMENSION_OF.get(cid[0], ''), CHECKS[cid].title,
+                     '%g' % cfg.weight(cid), 'Yes' if cfg.is_critical(cid) else '',
+                     CHECK_MEANING.get(cid, '')))
+    return rows
+
+
 # --------------------------------------------------------------------------- findings
 
 FINDING_LABELS = [('missing', 'Missing columns'), ('extra', 'Extra columns'),

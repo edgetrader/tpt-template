@@ -7,7 +7,7 @@ import os
 from typing import List
 
 from ..remarks import (FINDING_LABELS, REMARK_LABELS, column_findings, dates_standard,
-                       gate_reference, remark_findings, template_problems)
+                       gate_reference, remark_findings, template_problems, check_reference)
 from .console import usable_files
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
@@ -245,6 +245,20 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
     out.append('</table><div style="color:#888;font-size:10.5px;margin-top:3px">'
                'A gate sets the score to 0 or caps it, whatever the weighted score says. '
                'The lowest cap that applies wins.</div></section>')
+
+    out.append('<section><h2>Checks: what each code means</h2><table>'
+               '<colgroup><col style="width:44px"><col style="width:120px"><col style="width:30%">'
+               '<col style="width:52px"><col style="width:56px"><col></colgroup>'
+               '<tr><th>Code</th><th>Dimension</th><th>Check</th><th class="n">Weight</th>'
+               '<th>Critical</th><th>What it means</th></tr>')
+    for code, dim, title, weight, critical, meaning in check_reference(cfg):
+        out.append('<tr><td class="gate top">%s</td><td class="top">%s</td><td class="wrap">%s</td>'
+                   '<td class="n top">%s</td><td class="top">%s</td><td class="wrap">%s</td></tr>'
+                   % (code, html.escape(dim), html.escape(title), weight, critical,
+                      html.escape(meaning)))
+    out.append('</table><div style="color:#888;font-size:10.5px;margin-top:3px">Weight is the '
+               'check\'s share of its dimension. A critical check that fails caps the score at %g '
+               '(gate G6).</div></section>' % float(cfg.gates.get('critical_failure_cap', 94)))
 
     out.append('<div class="foot">Folder: %s &middot; template: %s &middot; config: %s<br>'
                'Bands: Accept %g+, Minor fixes %g to %g, Resubmit %g to %g, Reject below %g. '

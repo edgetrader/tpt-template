@@ -18,7 +18,7 @@ it, in a timestamped folder holding:
 | `run_stats.json` | The run's figures, read by the next run for the comparison |
 | `TPT_scorecards.xlsx` | Run summary, gate reference, dimension scores, check matrix, issue log, feedback, and one scorecard sheet per file |
 | `run_summary.html` | One-page summary for management, with a gate reference. Print it to PDF |
-| `summary.xlsx` | One sheet: the summary table with a Remarks column, and the gate codes explained above it |
+| `summary.xlsx` | Run summary (gate codes explained above the file table), Column findings, Accepted files and Check reference (every check code: dimension, weight, critical, what it means) |
 | `accepted_files.xlsx` | Every file rated Accept or Minor fixes: rating, score, GP, fund, file name and full path (also a sheet in the workbooks and a list in the HTML) |
 | `summary.csv` | Same table, only when you pass `--csv` |
 
