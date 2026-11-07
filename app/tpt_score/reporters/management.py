@@ -11,7 +11,6 @@ from __future__ import annotations
 import collections
 import csv
 import fnmatch
-import glob
 import html
 import json
 import os
@@ -172,24 +171,17 @@ def write_stats(outdir: str, scores: List[FileScore], run_info: dict) -> str:
 
 
 def previous_stats(outdir: str, folder: str) -> Optional[dict]:
-    """The latest earlier run over the same input folder, if one was kept."""
-    parent = os.path.dirname(os.path.abspath(outdir))
-    here = os.path.abspath(outdir)
-    best = None
-    for p in glob.glob(os.path.join(parent, '*', STATS_FILE)):
-        d = os.path.dirname(os.path.abspath(p))
-        if d == here:
-            continue
-        try:
-            with open(p, encoding='utf-8') as fh:
-                data = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if os.path.abspath(data.get('folder', '')) != os.path.abspath(folder):
-            continue
-        if best is None or data.get('started', '') > best.get('started', ''):
-            best = data
-    return best
+    """The previous run over the same input folder: the run_stats.json this run
+    is about to overwrite. Read it before any report is written."""
+    p = os.path.join(outdir, STATS_FILE)
+    try:
+        with open(p, encoding='utf-8') as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if os.path.abspath(data.get('folder', '')) != os.path.abspath(folder):
+        return None
+    return data
 
 
 # --------------------------------------------------------------------------- page

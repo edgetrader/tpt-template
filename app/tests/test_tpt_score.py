@@ -895,9 +895,7 @@ class TestManagementSummary(unittest.TestCase):
 
     def _run(self, *extra):
         cli.run(['--in', DATA, '--out', self.out, '--template', TEMPLATE, '--quiet'] + list(extra))
-        base = os.path.join(self.out, os.path.basename(DATA))     # output/<input folder>/run_...
-        runs = sorted(d for d in os.listdir(base) if d.startswith('run_'))
-        return os.path.join(base, runs[-1])
+        return os.path.join(self.out, os.path.basename(DATA))     # output/<input folder>/
 
     def test_page_and_stats_are_written(self):
         d = self._run()
@@ -912,7 +910,6 @@ class TestManagementSummary(unittest.TestCase):
     def test_second_run_compares_with_the_first(self):
         import time
         self._run()
-        time.sleep(1.1)
         d = self._run()
         page = _read(os.path.join(d, 'management_summary.html'))
         self.assertIn('unchanged since last run', page)
@@ -1115,9 +1112,15 @@ class TestSettings(unittest.TestCase):
         cli.run(['--settings', path, '--in', os.path.basename(DATA), '--out', out,
                  '--template', TEMPLATE, '--quiet'])
         sub = os.path.join(out, os.path.basename(DATA))
-        runs = [d for d in os.listdir(sub) if d.startswith('run_')]
-        self.assertEqual(len(runs), 1)
-        self.assertTrue(os.path.isfile(os.path.join(sub, runs[0], 'summary.xlsx')))
+        self.assertTrue(os.path.isfile(os.path.join(sub, 'summary.xlsx')))
+        self.assertFalse([d for d in os.listdir(sub) if os.path.isdir(os.path.join(sub, d))])
+        # a second run replaces the files, and a CSV from the first is not left behind
+        with open(os.path.join(sub, 'summary.csv'), 'w') as fh:
+            fh.write('stale')
+        cli.run(['--settings', path, '--in', os.path.basename(DATA), '--out', out,
+                 '--template', TEMPLATE, '--quiet'])
+        self.assertFalse(os.path.exists(os.path.join(sub, 'summary.csv')))
+        self.assertTrue(os.path.isfile(os.path.join(sub, 'summary.xlsx')))
         self.assertEqual(cli.input_label(DATA, 'Q4/2026'), os.path.join('Q4', '2026'))
         self.assertEqual(cli.input_label(DATA, None), os.path.basename(DATA))
         self.assertEqual(cli.input_label(os.path.join(DATA, 'clean.xlsx'), 'x.xlsx'),

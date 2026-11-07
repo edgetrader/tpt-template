@@ -10,7 +10,7 @@ cd app
 python tpt_score.py --in ../data
 ```
 
-Reports land in `output/<input folder>/run_<timestamp>/`, e.g. `output/data/run_20261107_221500/`.
+Reports land in `output/<input folder>/`, e.g. `output/data/`; the latest run replaces the previous one.
 
 ## What is here
 
@@ -18,7 +18,7 @@ Reports land in `output/<input folder>/run_<timestamp>/`, e.g. `output/data/run_
 | --- | --- |
 | `app/` | The scoring system: scripts, `rules.yaml`, tests and fixtures. See `app/README.md` |
 | `data/` | TPT files to score. Currently 100 synthetic V7 deliveries with known faults, plus their ground truth. See `data/README.md` |
-| `output/` | Where each run writes its reports: one folder per input folder, one timestamped subfolder per run |
+| `output/` | Where runs write their reports: one folder per input folder, holding the latest run |
 | `templates/` | The FinDatEx workbooks, V5 to V8. V7 is the one the rules are read from |
 | `archive/` | Earlier sample sets and the original checker. Not used by the scorer |
 | `CLAUDE.md` | The design: scoring model, the 24 checks, gates, build plan |

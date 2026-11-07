@@ -10,9 +10,9 @@ python tpt_score.py --in ../data
 ```
 
 The scripts live in `app/`; everything a run produces goes to `output/` beside it, in a
-folder named after the input folder, one timestamped subfolder per run
-(`output/data/run_20261107_221500/` for `--in data`; `--in 2026/Q4` gives
-`output/2026/Q4/run_.../`). Each run folder holds:
+folder named after the input folder (`output/data/` for `--in data`; `--in 2026/Q4` gives
+`output/2026/Q4/`). The latest run over a folder replaces that folder's reports; the
+management page still shows the change since the run it replaced. Each folder holds:
 
 | File | What it is |
 | --- | --- |

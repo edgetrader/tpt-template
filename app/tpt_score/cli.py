@@ -21,6 +21,10 @@ from .scorer import FileScore, score_file
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_OUT = os.path.join(os.path.dirname(APP_DIR), 'output')
 
+# Every file a run writes; a new run removes them first so nothing stale is left.
+REPORT_FILES = ('summary.xlsx', 'TPT_scorecards.xlsx', 'accepted_files.xlsx', 'run_summary.html',
+                'management_summary.html', 'summary.csv', 'run_stats.json')
+
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -59,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--no-excel', action='store_true', help='skip the Excel workbook')
     p.add_argument('--no-html', action='store_true', help='skip the HTML summary')
     p.add_argument('--no-timestamp', action='store_true',
-                   help='write straight into --out instead of a timestamped subfolder')
+                   help='write straight into --out instead of a subfolder named after the input')
     p.add_argument('-q', '--quiet', action='store_true', help='only print the recap')
     p.add_argument('--version', action='version', version='tpt_score %s' % __version__)
     return p
@@ -217,13 +221,22 @@ def run(args=None) -> int:
             print('  [%*d/%d] %-52s %5.1f  %s'
                   % (len(str(len(files))), n, len(files), s.filename[:52], s.score, s.rating))
 
-    # Reports go to <output>/<input folder name>/run_<timestamp>/, so runs over
-    # different folders stay apart and each folder keeps its own history.
+    # Reports go to <output>/<input folder name>/. The latest run over a folder
+    # replaces the reports of the one before; its figures are read first so the
+    # management page can still show the change since then.
     outdir = opts.output
     if not opts.no_timestamp:
-        outdir = os.path.join(outdir, input_label(opts.input, given_in),
-                              started.strftime('run_%Y%m%d_%H%M%S'))
+        outdir = os.path.join(outdir, input_label(opts.input, given_in))
     os.makedirs(outdir, exist_ok=True)
+    from .reporters.management import previous_stats
+    prev = previous_stats(outdir, os.path.abspath(opts.input))
+    for name in REPORT_FILES:                       # nothing stale from an earlier run
+        old = os.path.join(outdir, name)
+        if os.path.isfile(old):
+            try:
+                os.remove(old)
+            except OSError:
+                pass
 
     run_info = {
         'started': started.strftime('%Y-%m-%d %H:%M:%S'),
@@ -235,12 +248,11 @@ def run(args=None) -> int:
     }
 
     outputs = {'summary': write_summary_xlsx(os.path.join(outdir, 'summary.xlsx'), scores, cfg, run_info)}
-    from .reporters.management import (GP_MAP_NAME, load_gp_map, previous_stats,
+    from .reporters.management import (GP_MAP_NAME, load_gp_map,
                                        write_management, write_stats)
     gp_map = load_gp_map([opts.gp_map, os.path.join(os.path.abspath(opts.input) if os.path.isdir(opts.input)
                                                    else os.path.dirname(os.path.abspath(opts.input)), GP_MAP_NAME),
                           os.path.join(APP_DIR, GP_MAP_NAME)])
-    prev = previous_stats(outdir, run_info['folder'])
     outputs['management'] = write_management(os.path.join(outdir, 'management_summary.html'),
                                              scores, cfg, run_info, gp_map, prev)
     write_stats(outdir, scores, run_info)
