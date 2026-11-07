@@ -1,8 +1,0 @@
-# Copy to config/settings.yaml and set your own paths. Command-line options override these.
-# A relative path is read from the project folder; ~ means your home folder.
-
-# Root folder holding the GP TPT submissions to score.
-input_folder: data
-
-# Fund reference workbook: its "Fund Name" tab lists GP Name and Fund Name.
-fund_reference: ~/Documents/fund_reference.xlsx

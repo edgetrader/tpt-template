@@ -13,5 +13,3 @@ Claude outputs/
 # Fund reference workbooks (GP and fund names)
 *fund_reference*.xlsx
 *fund_reference*.xlsm
-# Local settings (machine-specific paths)
-config/settings.yaml

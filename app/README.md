@@ -77,8 +77,8 @@ python tpt_score.py --settings other.yaml
 ```
 
 A relative path is read from the project folder and `~` means your home folder. The file is
-optional; without it `--in` is required. `config/settings.yaml` is not committed to git
-(it holds local paths); `config/settings.example.yaml` is the template to copy.
+optional; without it `--in` is required. It is committed with the project, so update the
+paths when you run from another machine.
 
 ### Fund reference: which GP sent the file
 
