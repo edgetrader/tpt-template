@@ -10,7 +10,10 @@ from .checks import Context, run_all
 from .config import Config
 from .loader import UnreadableFile, load_table
 from .mapper import detect_version, map_columns
-from .remarks import column_findings
+from .profile import profile_columns
+from .remarks import FINDING_LABELS, column_findings
+
+FINDING_KEYS = [k for k, _ in FINDING_LABELS]
 
 DIMENSIONS = ['structure', 'completeness', 'validity', 'consistency']
 DIMENSION_LABEL = {'structure': 'Structure', 'completeness': 'Completeness',
@@ -73,6 +76,9 @@ class FileScore:
     extra_columns: List[str] = dc_field(default_factory=list)
     missing_optional: List[str] = dc_field(default_factory=list)      # non-mandatory fields absent
     blank_mandatory: List[Any] = dc_field(default_factory=list)       # (column, empty cells, applicable cells)
+    extra_tables: List[str] = dc_field(default_factory=list)          # other TPT tables found
+    type_mismatches: List[Any] = dc_field(default_factory=list)
+    date_formats: List[Any] = dc_field(default_factory=list)
 
     @property
     def remarks(self) -> str:
@@ -96,7 +102,7 @@ class FileScore:
                 round(self.dimensions['validity'].score, 1) if self.dimensions else '',
                 round(self.dimensions['consistency'].score, 1) if self.dimensions else '',
                 '; '.join(self.gates), self.error, self.sheet,
-                *[' | '.join(column_findings(self)[k]) for k in ('missing', 'extra', 'renamed', 'blanks')],
+                *[' | '.join(column_findings(self)[k]) for k in FINDING_KEYS],
                 self.remarks]
 
 
@@ -153,7 +159,7 @@ def score_file(path: str, fields, cfg: Config) -> FileScore:
     fs_kw = _column_findings(cmap, fields)
     fs_kw.update(sheet=table.sheet, positions=len(table.rows),
                  mapped_columns=cmap.n_mapped, version=version,
-                 recovery=list(table.recovery),
+                 recovery=list(table.recovery), extra_tables=list(table.extra_tables),
                  header_cell='%s%d' % (_col_letter(table.first_col), table.header_row))
 
     # Gate G2: no header, or too few recognisable columns to judge anything.
@@ -181,6 +187,9 @@ def score_file(path: str, fields, cfg: Config) -> FileScore:
                 f = fields.get(tok)
                 fs.blank_mandatory.append((f.name if f else tok, empty, total))
         fs.blank_mandatory.sort(key=lambda x: -x[1])
+    prof = profile_columns(ctx)
+    fs.type_mismatches = prof['type_mismatches']
+    fs.date_formats = prof['date_formats']
     fs.fund_id = _first_value(ctx, '1')
     fs.fund_name = _first_value(ctx, '3')
 
@@ -191,6 +200,9 @@ def score_file(path: str, fields, cfg: Config) -> FileScore:
     if version != 'V7':
         cap = float(cfg.gates.get('wrong_version_cap', 40))
         caps.append((cap, 'G4: template is %s, not V7' % version))
+    if fs.extra_tables:
+        caps.append((float(cfg.gates.get('multiple_tables_cap', 40)),
+                     'G7: %d TPT tables found, only one is allowed' % (1 + len(fs.extra_tables))))
     mm = cfg.gates.get('missing_mandatory', {})
     s3 = results.get('S3')
     if s3 is not None and s3.f > float(mm.get('share', 0.20)):

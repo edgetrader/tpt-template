@@ -33,6 +33,7 @@ bands:
 gates:
   min_mapped_columns: 10        # fewer recognised columns than this: score 0 (G2)
   wrong_version_cap: 40         # not a V7 file (G4)
+  multiple_tables_cap: 40       # more than one TPT table in the workbook (G7)
   missing_mandatory:            # more than this share of mandatory columns missing (G5)
     share: 0.20
     cap: 49

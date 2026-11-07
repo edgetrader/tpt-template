@@ -10,7 +10,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter as CL
 
 from ..checks import CHECKS
-from ..remarks import FINDING_LABELS, bullets, column_findings
+from ..remarks import FINDING_LABELS, bullets, column_findings, dates_standard, template_problems
+from ..scorer import FINDING_KEYS
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
 HEAD_FILL = PatternFill('solid', fgColor='1F3864')
@@ -23,7 +24,11 @@ TAB_FILL = PatternFill('solid', fgColor='DDEBF7')
 FINDING_FILL = {'missing': PatternFill('solid', fgColor='FCD5B4'),
                 'extra': PatternFill('solid', fgColor='FFF2CC'),
                 'renamed': PatternFill('solid', fgColor='FFEB9C'),
-                'blanks': PatternFill('solid', fgColor='FFC7CE')}
+                'blanks': PatternFill('solid', fgColor='FFC7CE'),
+                'types': PatternFill('solid', fgColor='F4B6C2'),
+                'dates': PatternFill('solid', fgColor='FFE699'),
+                'dates_ok': PatternFill('solid', fgColor='E2EFDA'),
+                'template': PatternFill('solid', fgColor='FFC7CE')}
 
 RATING_FILL = {
     'Accept': PatternFill('solid', fgColor='C6EFCE'),
@@ -70,6 +75,8 @@ def write_workbook(path: str, scores: List[FileScore], cfg, run_info: dict):
     used.add(wb.active.title.lower())
     _column_findings_sheet(wb.create_sheet('Column findings'), scores)
     used.add('column findings')
+    _usable_files_sheet(wb.create_sheet('Accepted files'), scores)
+    used.add('accepted files')
     _gate_reference(wb.create_sheet('Gate reference'), cfg)
     used.add('gate reference')
     _dimension_scores(wb.create_sheet('Dimension scores'), scores)
@@ -144,14 +151,15 @@ def _run_summary(ws, scores, cfg, run_info):
                     'Structure', 'Completeness', 'Validity', 'Consistency',
                     'Gates applied', 'Could not be read', 'Tab found in', 'Missing columns',
                     'Extra columns', 'Renamed columns (found -> template)',
-                    'Mandatory columns with blanks', 'Other issues'],
-            [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 30, 24, 22, 44, 30, 50, 44, 44])
+                    'Mandatory columns with blanks', 'Wrong data type', 'Date formats (date columns)',
+                    'Remarks'],
+            [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 34, 20, 14, 38, 24, 40, 40, 50, 50, 54])
     ws.freeze_panes = None
     r += 1
     for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
         find = column_findings(s)
-        row = s.as_summary_row()[:12] + [s.sheet] + [bullets(find[k]) for k in
-                                                       ('missing', 'extra', 'renamed', 'blanks')] + [s.remarks]
+        row = s.as_summary_row()[:12] + [s.sheet] + [bullets(find[k], 15 if k == 'dates' else 12)
+                                                       for k in FINDING_KEYS] + [s.remarks]
         for i, v in enumerate(row, start=1):
             c = ws.cell(r, i, v)
             if i >= 11:
@@ -159,9 +167,14 @@ def _run_summary(ws, scores, cfg, run_info):
         ws.cell(r, 13).font = TAB_FONT
         if s.sheet:
             ws.cell(r, 13).fill = TAB_FILL
-        for col, key in ((14, 'missing'), (15, 'extra'), (16, 'renamed'), (17, 'blanks')):
+        for col, key in ((14, 'missing'), (15, 'extra'), (16, 'renamed'), (17, 'blanks'), (18, 'types')):
             if find[key]:
                 ws.cell(r, col).fill = FINDING_FILL[key]
+        if find['dates']:
+            ws.cell(r, 19).fill = FINDING_FILL['dates_ok' if dates_standard(s) else 'dates']
+        if template_problems(s):
+            ws.cell(r, 20).fill = FINDING_FILL['template']
+            ws.cell(r, 20).font = Font(bold=True, color='9C0006')
         most = max([len(find[k]) for k in find] + [1])
         ws.row_dimensions[r].height = min(15 * min(most, 13) + 3, 210)
         ws.cell(r, 3).fill = RATING_FILL.get(s.rating, STATUS_FILL['Not evaluated'])
@@ -172,7 +185,23 @@ def _run_summary(ws, scores, cfg, run_info):
                                       ColorScaleRule(start_type='num', start_value=0, start_color='F8696B',
                                                      mid_type='num', mid_value=80, mid_color='FFEB84',
                                                      end_type='num', end_value=100, end_color='63BE7B'))
-    ws.auto_filter.ref = 'A%d:R%d' % (start, max(start, r - 1))
+    ws.auto_filter.ref = 'A%d:T%d' % (start, max(start, r - 1))
+
+
+def _usable_files_sheet(ws, scores):
+    """Full paths of the files rated Accept or Minor fixes."""
+    from .console import usable_files
+    files = usable_files(scores)
+    ws['A1'] = 'Files rated Accept or Minor fixes (%d of %d)' % (len(files), len(scores))
+    ws['A1'].font = TITLE_FONT
+    _header(ws, 3, ['Rating', 'Score', 'Full path'], [14, 8, 120])
+    r = 4
+    for s in files:
+        ws.cell(r, 1, s.rating).fill = RATING_FILL[s.rating]
+        ws.cell(r, 2, round(s.score, 1)).number_format = '0.0'
+        ws.cell(r, 3, os.path.abspath(s.path))
+        r += 1
+    ws.auto_filter.ref = 'A3:C%d' % max(3, r - 1)
 
 
 def _column_findings_sheet(ws, scores):
@@ -196,6 +225,7 @@ def write_summary_xlsx(path: str, scores: List[FileScore], cfg, run_info: dict):
     wb = openpyxl.Workbook()
     _run_summary(wb.active, scores, cfg, run_info)
     _column_findings_sheet(wb.create_sheet('Column findings'), scores)
+    _usable_files_sheet(wb.create_sheet('Accepted files'), scores)
     wb.save(path)
     return path
 

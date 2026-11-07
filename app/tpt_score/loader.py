@@ -24,6 +24,9 @@ READABLE_EXT = {'.xlsx', '.xlsm', '.xltx', '.xltm'}
 # stops once the pattern would have shown itself.
 FORMULA_SCAN_ROWS = 60
 
+# A row naming at least this many template fields is a table header.
+MIN_TABLE_COLUMNS = 10
+
 # Rows that are plainly not positions.
 _TOTAL_RE = re.compile(r'^\s*(total|totals|sum|subtotal|grand\s*total|sous[- ]total|somme)\b', re.I)
 _NOTE_RE = re.compile(r'^\s*(prepared|source|note|notes|disclaimer|contact|checked|reviewed|generated)\b', re.I)
@@ -51,6 +54,7 @@ class Table:
     formula_cells: int = 0
     leading_blank_cols: int = 0
     trailing_blank_cols: int = 0
+    extra_tables: List[str] = dc_field(default_factory=list)   # other TPT tables in the workbook
 
     @property
     def at_origin(self) -> bool:
@@ -125,11 +129,12 @@ def _pick_sheet(wb, fields: FieldSet):
     if chosen is None:
         chosen = max(names, key=lambda n: hits_of[n]) if names else None
 
+    others = [n for n in names if n != chosen and hits_of[n] >= MIN_TABLE_COLUMNS]
     note = ''
     if len(names) > 1 and chosen:
         note = 'sheet "%s" chosen (%d template columns recognised there)' % (
             chosen, hits_of.get(chosen, 0))
-    return wb[chosen], chosen, note
+    return wb[chosen], chosen, note, others
 
 
 def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
@@ -143,7 +148,7 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
         raise UnreadableFile('%s: %s' % (type(exc).__name__, str(exc)[:120]))
 
     try:
-        ws, sheet_name, sheet_note = _pick_sheet(wb, fields)
+        ws, sheet_name, sheet_note, other_sheets = _pick_sheet(wb, fields)
         grid = [list(r) for r in ws.iter_rows(values_only=True)]
 
         hidden_rows = sum(1 for d in ws.row_dimensions.values() if d.hidden)
@@ -178,6 +183,9 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
                   formula_cells=formula_cells)
     if sheet_note:
         table.note(sheet_note)
+    for other in other_sheets:
+        table.extra_tables.append('sheet "%s"' % other)
+        table.note('a second TPT table sits on sheet "%s"' % other)
     if len(sheets_available) > 1:
         table.note('workbook has %d sheets: %s' % (len(sheets_available), ', '.join(sheets_available)))
     if hidden_rows or hidden_cols:
@@ -231,7 +239,8 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
     header_norm = [normalise(h) for h in header]
     body: List[List[Any]] = []
     blank_runs = 0
-    for r in body_raw:
+    after_blank = False
+    for idx, r in enumerate(body_raw):
         row = list(r[:width]) + [None] * max(0, width - len(r))
         table.rows_scanned += 1
         first_text = _cell_text(row[0])
@@ -240,6 +249,17 @@ def load_table(path: str, fields: FieldSet, max_header_scan: int = 40) -> Table:
         if _row_blank(row):
             blank_runs += 1
             table.dropped_rows += 1
+            after_blank = True
+            continue
+        was_after_blank, after_blank = after_blank, False
+        # A header block that starts after a gap is a second table on this sheet.
+        # A header repeated straight under data is only a page-break repeat.
+        if was_after_blank and sum(1 for v in row if _cell_text(v)) >= MIN_TABLE_COLUMNS and \
+                _score_header(row, fields)[0] >= MIN_TABLE_COLUMNS:
+            where = 'sheet "%s" row %d' % (sheet_name, best_i + 2 + idx)
+            table.extra_tables.append(where)
+            table.dropped_rows += 1
+            table.note('a second TPT table header at %s' % where)
             continue
         if _TOTAL_RE.match(first_text) or _TOTAL_RE.match(joined):
             table.dropped_rows += 1

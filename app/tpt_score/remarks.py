@@ -10,7 +10,7 @@ from typing import List, Tuple
 
 # --------------------------------------------------------------------------- gates
 
-GATE_ORDER = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6']
+GATE_ORDER = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7']
 
 
 def gate_reference(cfg) -> List[Tuple[str, str, str, str]]:
@@ -37,6 +37,9 @@ def gate_reference(cfg) -> List[Tuple[str, str, str, str]]:
         ('G6', 'A critical check failed (%s).' % ', '.join(critical),
          'Capped at %g' % float(g.get('critical_failure_cap', 94)),
          'A serious flaw, so the file cannot reach Accept however good the rest is.'),
+        ('G7', 'The workbook holds more than one TPT table (on other sheets, or a second header block on the same sheet).',
+         'Capped at %g' % float(g.get('multiple_tables_cap', 40)),
+         'Ambiguous submission: it is unclear which table is the real one. Ask the GP to send one table only.'),
     ]
 
 
@@ -63,7 +66,8 @@ def _gate_plain(gate: str) -> str:
 # --------------------------------------------------------------------------- findings
 
 FINDING_LABELS = [('missing', 'Missing columns'), ('extra', 'Extra columns'),
-                  ('renamed', 'Renamed columns'), ('blanks', 'Mandatory columns with blanks')]
+                  ('renamed', 'Renamed columns'), ('blanks', 'Mandatory columns with blanks'),
+                  ('types', 'Wrong data type'), ('dates', 'Date formats')]
 
 
 def _clip(text, n: int = 50) -> str:
@@ -78,7 +82,7 @@ def column_findings(fs) -> dict:
     would be "missing" and the lists would only be noise.
     """
     if any(g.startswith('G2') for g in fs.gates):
-        return {'missing': [], 'extra': [], 'renamed': [], 'blanks': []}
+        return {k: [] for k, _ in FINDING_LABELS}
     missing = ['%s (mandatory)' % _pretty(n) for n in fs.missing_columns]
     missing += [_pretty(n) for n in fs.missing_optional]
     return {
@@ -86,7 +90,34 @@ def column_findings(fs) -> dict:
         'extra': [_clip(n) for n in fs.extra_columns],
         'renamed': ["%s -> %s" % (_clip(a), _pretty(b)) for a, b in fs.renamed_columns],
         'blanks': ['%s: %d of %d blank' % (_pretty(n), e, t) for n, e, t in fs.blank_mandatory],
+        'types': ['%s: expected %s, %d of %d cells are not (%s, e.g. %s)'
+                  % (_pretty(n), exp, bad, tot, why, ex) for n, exp, bad, tot, ex, why in fs.type_mismatches],
+        'dates': [_date_item(c) for c in fs.date_formats],
     }
+
+
+def _date_item(col) -> str:
+    name, formats, invalid, populated, _standard = col
+    parts = ['%s x%d' % (f, n) for f, n in formats]
+    if invalid:
+        parts.append('not a date x%d' % invalid)
+    return '%s: %s' % (_pretty(name), ', '.join(parts))
+
+
+def dates_standard(fs) -> bool:
+    """True when every date column uses one standard format (ISO text or Excel dates)."""
+    return bool(fs.date_formats) and all(c[4] for c in fs.date_formats)
+
+
+def template_problems(fs) -> List[str]:
+    """Template-level problems that deserve to stand out."""
+    out = []
+    if fs.version != 'V7':
+        out.append('DIFFERENT TEMPLATE: %s, not V7' % fs.version)
+    if fs.extra_tables:
+        where = '; '.join(fs.extra_tables[:3])
+        out.append('MORE THAN ONE TPT TABLE (%d found, also at %s)' % (1 + len(fs.extra_tables), where))
+    return out
 
 
 def bullets(items: List[str], limit: int = 12) -> str:
@@ -111,9 +142,7 @@ def build_remarks(fs) -> str:
             return 'Not recognisable as a TPT file (%s).' % _gate_plain(zero)
         return 'Nothing to score: %s.' % _gate_plain(zero)
 
-    parts: List[str] = []
-    if fs.version != 'V7':
-        parts.append('Template is %s, not V7' % fs.version)
+    parts: List[str] = template_problems(fs)
     if fs.header_cell and fs.header_cell != 'A1':
         parts.append('table starts at %s, not A1' % fs.header_cell)
     s7 = fs.checks.get('S7')
@@ -121,11 +150,12 @@ def build_remarks(fs) -> str:
         parts.append('%d non-position rows (totals, notes, blanks)' % s7.n_affected)
     if fs.duplicate_columns:
         parts.append('%d repeated columns' % len(fs.duplicate_columns))
-    told = {'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'C1'}
+    told = {'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'C1', 'V1', 'V2', 'V3'}   # V1-V3 are in the lists
     for c in [c for c in fs.top_fixes if c.id not in told and c.points_lost >= 0.5][:3]:
         parts.append(c.title[0].lower() + c.title[1:] if c.title[:2].isupper() is False else c.title)
     if not parts:
         findings = column_findings(fs)
-        return '' if any(findings.values()) else 'No issues found.'
+        problems = [k for k in ('missing', 'extra', 'renamed', 'blanks', 'types') if findings[k]]
+        return '' if problems else 'No issues found.'
     text = '; '.join(parts)
     return text[0].upper() + text[1:] + '.'

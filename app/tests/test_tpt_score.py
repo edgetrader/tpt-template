@@ -596,11 +596,12 @@ class TestEndToEndRun(unittest.TestCase):
                  '--no-timestamp', '--quiet'])
         self.assertFalse(os.path.exists(os.path.join(self.out, 'summary.csv')))
         wb = openpyxl.load_workbook(os.path.join(self.out, 'summary.xlsx'))
-        self.assertEqual(len(wb.sheetnames), 2)
+        self.assertEqual(len(wb.sheetnames), 3)
         cells = [str(c.value) for row in wb.active.iter_rows() for c in row if c.value is not None]
-        for gate in ('G1', 'G2', 'G3', 'G4', 'G5', 'G6'):
+        for gate in ('G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7'):
             self.assertIn(gate, cells)
-        for head in ('Tab found in', 'Missing columns', 'Extra columns', 'Mandatory columns with blanks'):
+        for head in ('Tab found in', 'Missing columns', 'Extra columns', 'Mandatory columns with blanks',
+                     'Wrong data type', 'Date formats (date columns)', 'Remarks'):
             self.assertIn(head, cells)
         self.assertIn('Column findings', wb.sheetnames)
 
@@ -692,6 +693,10 @@ class TestRemarks(unittest.TestCase):
 
     cfg = _CFG
 
+    def setUp(self):
+        self.out_dir = tempfile.mkdtemp(prefix='tpt_rem_')
+        self.addCleanup(shutil.rmtree, self.out_dir, ignore_errors=True)
+
     def _score(self, name):
         return score(name)
 
@@ -730,10 +735,65 @@ class TestRemarks(unittest.TestCase):
         self.assertIn('not V7', self._score('g4_v6_template.xlsx').remarks)
         self.assertIn('Could not be opened', self._score('g1_corrupt.xlsx').remarks)
 
+    def test_different_template_is_highlighted_in_remarks(self):
+        from tpt_score.remarks import template_problems
+        fs = self._score('g4_v6_template.xlsx')
+        self.assertTrue(template_problems(fs))
+        self.assertTrue(fs.remarks.startswith('DIFFERENT TEMPLATE'))
+        self.assertEqual(template_problems(self._score('clean.xlsx')), [])
+
+    def test_second_table_on_another_sheet_rejects(self):
+        fs = self._score('m1_two_sheets.xlsx')
+        self.assertEqual(len(fs.extra_tables), 1)
+        self.assertEqual(fs.rating, 'Reject')
+        self.assertTrue(any(g.startswith('G7') for g in fs.gates))
+        self.assertIn('MORE THAN ONE TPT TABLE', fs.remarks)
+
+    def test_second_block_on_same_sheet_rejects(self):
+        fs = self._score('m2_second_block.xlsx')
+        self.assertEqual(len(fs.extra_tables), 1)
+        self.assertEqual(fs.rating, 'Reject')
+
+    def test_repeated_header_under_data_is_not_a_second_table(self):
+        self.assertEqual(self._score('s7_totals_row.xlsx').extra_tables, [])
+        self.assertEqual(self._score('clean.xlsx').extra_tables, [])
+
+    def test_wrong_data_type_is_listed_by_column(self):
+        from tpt_score.remarks import column_findings
+        fs = self._score('t1_text_in_number_column.xlsx')
+        self.assertTrue(fs.type_mismatches)
+        name, expected, bad, total, example, why = fs.type_mismatches[0]
+        self.assertIn('number', expected)
+        self.assertEqual(bad, 1)
+        self.assertEqual(example, 'about 1m')
+        self.assertTrue(column_findings(fs)['types'])
+        self.assertEqual(self._score('clean.xlsx').type_mismatches, [])
+
+    def test_date_formats_are_listed_for_every_date_column(self):
+        from tpt_score.remarks import dates_standard
+        clean = self._score('clean.xlsx')
+        self.assertGreaterEqual(len(clean.date_formats), 3)
+        self.assertTrue(dates_standard(clean))
+        mixed = self._score('t2_mixed_date_formats.xlsx')
+        self.assertFalse(dates_standard(mixed))
+        formats = {f for col in mixed.date_formats for f, _ in col[1]}
+        self.assertIn('DD/MM/YYYY', formats)
+        self.assertIn('YYYY-MM-DD', formats)
+
+    def test_accepted_files_list_has_full_paths(self):
+        cli.run(['--in', DATA, '--out', self.out_dir, '--template', TEMPLATE, '--no-timestamp', '--quiet'])
+        with open(os.path.join(self.out_dir, 'accepted_files.txt'), encoding='utf-8') as fh:
+            lines = [l.strip() for l in fh if l.strip()]
+        self.assertTrue(lines)
+        self.assertTrue(all(os.path.isabs(l) and os.path.isfile(l) for l in lines))
+        self.assertIn(os.path.abspath(os.path.join(DATA, 'clean.xlsx')), lines)
+        self.assertNotIn(os.path.abspath(os.path.join(DATA, 'g1_corrupt.xlsx')), lines)
+        self.assertNotIn(os.path.abspath(os.path.join(DATA, 'm1_two_sheets.xlsx')), lines)
+
     def test_gate_reference_covers_all_gates(self):
         from tpt_score.remarks import gate_reference
         rows = gate_reference(self.cfg)
-        self.assertEqual([r[0] for r in rows], ['G1', 'G2', 'G3', 'G4', 'G5', 'G6'])
+        self.assertEqual([r[0] for r in rows], ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7'])
         self.assertIn('S3', rows[5][1])
 
     def test_reports_carry_remarks_and_gates(self):
@@ -744,7 +804,8 @@ class TestRemarks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             write_csv(os.path.join(d, 's.csv'), scores)
             rows = list(csv.DictReader(open(os.path.join(d, 's.csv'), encoding='utf-8-sig')))
-            self.assertIn('other_issues', rows[0])
+            self.assertIn('remarks', rows[0])
+            self.assertIn('date_formats', rows[0])
             self.assertIn('missing_columns', rows[0])
             write_html(os.path.join(d, 'r.html'), scores, self.cfg, {})
             page = open(os.path.join(d, 'r.html'), encoding='utf-8').read()

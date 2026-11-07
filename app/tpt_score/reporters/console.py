@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import collections
 import csv
+import os
 from typing import List
 
 from ..scorer import FileScore
@@ -10,7 +11,8 @@ from ..scorer import FileScore
 SUMMARY_COLUMNS = ['file', 'score', 'rating', 'version', 'positions', 'columns_mapped',
                    'structure', 'completeness', 'validity', 'consistency',
                    'gates', 'not_scored', 'tab_found_in', 'missing_columns', 'extra_columns',
-                   'renamed_columns', 'mandatory_blanks', 'other_issues']
+                   'renamed_columns', 'mandatory_blanks', 'wrong_data_type', 'date_formats',
+                   'remarks']
 
 
 def write_csv(path: str, scores: List[FileScore]) -> str:
@@ -19,6 +21,22 @@ def write_csv(path: str, scores: List[FileScore]) -> str:
         w.writerow(SUMMARY_COLUMNS)
         for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
             w.writerow(s.as_summary_row())
+    return path
+
+
+USABLE_RATINGS = ('Accept', 'Minor fixes')
+
+
+def usable_files(scores: List[FileScore]) -> List[FileScore]:
+    """Files rated Accept or Minor fixes, in path order."""
+    return sorted((s for s in scores if s.rating in USABLE_RATINGS), key=lambda x: os.path.abspath(x.path))
+
+
+def write_usable_list(path: str, scores: List[FileScore]) -> str:
+    """One full path per line: the files that can go forward."""
+    with open(path, 'w', encoding='utf-8') as fh:
+        for s in usable_files(scores):
+            fh.write(os.path.abspath(s.path) + '\n')
     return path
 
 

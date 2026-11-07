@@ -12,7 +12,7 @@ from typing import List
 from . import __version__
 from .config import Config, load_config, validate
 from .loader import READABLE_EXT
-from .reporters import recap, write_csv, write_html, write_summary_xlsx, write_workbook
+from .reporters import recap, write_csv, write_html, write_summary_xlsx, write_usable_list, write_workbook
 from .rules import load_fieldset
 from .scorer import FileScore, score_file
 
@@ -155,6 +155,7 @@ def run(args=None) -> int:
     }
 
     outputs = {'summary': write_summary_xlsx(os.path.join(outdir, 'summary.xlsx'), scores, cfg, run_info)}
+    outputs['usable'] = write_usable_list(os.path.join(outdir, 'accepted_files.txt'), scores)
     if opts.csv:
         outputs['csv'] = write_csv(os.path.join(outdir, 'summary.csv'), scores)
     if not opts.no_excel and cfg.data.get('reports', {}).get('excel', True):

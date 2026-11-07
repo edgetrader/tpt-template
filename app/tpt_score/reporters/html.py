@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import collections
 import html
+import os
 from typing import List
 
-from ..remarks import FINDING_LABELS, column_findings, gate_reference
+from ..remarks import (FINDING_LABELS, column_findings, dates_standard, gate_reference,
+                       template_problems)
+from .console import usable_files
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
 BAND_COLOUR = {'Accept': '#2e7d32', 'Minor fixes': '#b58100',
@@ -39,7 +42,11 @@ td.top{vertical-align:top}
 .f{margin:0 0 3px}.f b{font-weight:600}
 .f.missing b{background:#fcd5b4}.f.extra b{background:#fff2cc}
 .f.renamed b{background:#ffeb9c}.f.blanks b{background:#ffc7CE}
+.f.types b{background:#f4b6c2}.f.dates b{background:#ffe699}.f.dates_ok b{background:#e2efda}
+.f.bad{background:#ffc7ce;color:#9c0006;font-weight:600;padding:1px 5px;border-radius:3px}
 .f b{padding:0 4px;border-radius:2px}
+details{margin-top:4px}summary{cursor:pointer;color:#1f3864;font-weight:600;font-size:11.5px}
+.paths{font:10.5px/1.5 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;margin-top:5px}
 .track{background:#f1f1f1;border-radius:3px;height:14px;width:100%}
 .bar{height:14px;border-radius:3px;display:block}
 .pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10.5px;color:#fff;
@@ -155,15 +162,27 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
             cell = []
             if s.sheet:
                 cell.append('<div class="f">Tab: <span class="tab">%s</span></div>' % html.escape(s.sheet))
+            if s.remarks and s.remarks != 'No issues found.':
+                cell.append('<div class="f%s">%s</div>' % (' bad' if template_problems(s) else '',
+                                                          html.escape(s.remarks)))
             for key, label in FINDING_LABELS:
                 items = find[key]
+                if key == 'dates':
+                    if items:
+                        ok = dates_standard(s)
+                        bad = [i for i, c in zip(items, s.date_formats) if not c[4]]
+                        text = ('all date columns use one standard format: %s'
+                                % html.escape(s.date_formats[0][1][0][0]) if ok
+                                else html.escape('; '.join(bad[:4])) +
+                                (' and %d more' % (len(bad) - 4) if len(bad) > 4 else ''))
+                        cell.append('<div class="f %s"><b>%s</b> %s</div>'
+                                    % ('dates_ok' if ok else 'dates', label, text))
+                    continue
                 if items:
                     more = ' and %d more' % (len(items) - 6) if len(items) > 6 else ''
                     cell.append('<div class="f %s"><b>%s (%d)</b> %s%s</div>'
                                 % (key, label, len(items),
                                    html.escape('; '.join(items[:6])), more))
-            if s.remarks and s.remarks != 'No issues found.':
-                cell.append('<div class="f">%s</div>' % html.escape(s.remarks))
             out.append('<tr><td class="wrap top">%s</td><td class="n top">%.1f</td>'
                        '<td class="top">%s</td><td class="wrap">%s</td></tr>'
                        % (html.escape(s.filename), s.score, _pill(s.rating), ''.join(cell)))
@@ -172,6 +191,12 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
             out.append('<div style="color:#888;font-size:10.5px;margin-top:3px">%d more files '
                        'below Accept are listed in summary.xlsx.</div>' % (len(need) - len(shown)))
         out.append('</section>')
+
+    usable = usable_files(scores)
+    out.append('<section><h2>Files rated Accept or Minor fixes: %d of %d</h2>' % (len(usable), n))
+    out.append('<details><summary>Show the full path of each file (also in accepted_files.txt '
+               'and the Accepted files sheet)</summary><div class="paths">%s</div></details></section>'
+               % '<br>'.join(html.escape(os.path.abspath(u.path)) for u in usable))
 
     out.append('<section><h2>Gates: hard rules applied on top of the score</h2>'
                '<table><colgroup><col style="width:44px"><col style="width:36%">'

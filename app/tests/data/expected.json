@@ -435,6 +435,56 @@
   "gate": null
  },
  {
+  "file": "m1_two_sheets.xlsx",
+  "note": "a second TPT table on another sheet",
+  "rating": "Reject",
+  "gate": "G7",
+  "max_score": 40.0,
+  "fails": [],
+  "passes": [
+   "S3"
+  ],
+  "min_score": null,
+  "exact_score": null
+ },
+ {
+  "file": "m2_second_block.xlsx",
+  "note": "a second header block below the first table",
+  "rating": "Reject",
+  "min_score": null,
+  "max_score": 40.0,
+  "exact_score": null,
+  "fails": [],
+  "passes": [],
+  "gate": "G7"
+ },
+ {
+  "file": "t1_text_in_number_column.xlsx",
+  "note": "text where a number is expected",
+  "rating": null,
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V1"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
+  "file": "t2_mixed_date_formats.xlsx",
+  "note": "one date column written in three formats",
+  "rating": null,
+  "min_score": null,
+  "max_score": null,
+  "exact_score": null,
+  "fails": [
+   "V2"
+  ],
+  "passes": [],
+  "gate": null
+ },
+ {
   "file": "r3_data_sheet_is_cover.xlsx",
   "note": "a cover page named Data must not hide the real positions",
   "rating": "Accept",

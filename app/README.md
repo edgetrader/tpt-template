@@ -17,9 +17,10 @@ it, in a timestamped folder holding:
 | `TPT_scorecards.xlsx` | Run summary, gate reference, dimension scores, check matrix, issue log, feedback, and one scorecard sheet per file |
 | `run_summary.html` | One-page summary for management, with a gate reference. Print it to PDF |
 | `summary.xlsx` | One sheet: the summary table with a Remarks column, and the gate codes explained above it |
+| `accepted_files.txt` | Full path of every file rated Accept or Minor fixes, one per line (also a sheet in the workbooks and a list in the HTML) |
 | `summary.csv` | Same table, only when you pass `--csv` |
 
-The summary table lists, per file: the **tab** the template was found in, **missing columns** (mandatory ones flagged), **extra columns** not in V7, **renamed columns** (found -> template name), **mandatory columns with blanks** (blank cells out of applicable rows), and a short **other issues** line. The full lists are on the *Column findings* sheet.
+The summary table lists, per file: the **tab** the template was found in, **missing columns** (mandatory ones flagged), **extra columns** not in V7, **renamed columns** (found -> template name), **mandatory columns with blanks**, **wrong data type** (columns whose cells do not match the expected type, with an example), the **format of every date column**, and a short **remarks** line. A different template or more than one TPT table is shown in capitals and highlighted red. The full lists are on the *Column findings* sheet.
 
 ## Installing
 
@@ -89,6 +90,7 @@ all costs at least 0.25, however few rows are involved.
 | G4 | Template is not V7 | Cap 40 |
 | G5 | More than 20% of mandatory columns missing | Cap 49 |
 | G6 | A critical check failed | Cap 94, so Accept is out of reach |
+| G7 | More than one TPT table in the workbook (another sheet, or a second header block after a gap on the same sheet) | Cap 40, so Reject |
 
 ### Ratings
 
@@ -152,7 +154,7 @@ settings that produced it.
 
 ```
 python tests/make_test_data.py      # build the fixtures (optional; the tests do it)
-python tests/test_tpt_score.py      # 72 tests
+python tests/test_tpt_score.py      # 82 tests
 ```
 
 `tests/data/` holds 33 fixtures: one clean file that scores exactly 100.0, one
@@ -196,6 +198,7 @@ tpt_score/
   util.py               value parsing, check digits, reference lists
   scorer.py             weights, floors, gates, bands
   remarks.py            plain-language remarks and the gate reference table
+  profile.py            per-column data-type mismatches and date formats
   checks/               the 24 checks, one module per dimension
   reporters/            Excel workbook, HTML summary, CSV, console recap
 tests/

@@ -409,6 +409,40 @@ def make_all(template: str, outdir: str):
     fixture('r2_nav_zero.xlsx', 'NAV reported as zero while positions are held',
             header, r, fails=['K3'])
 
+    # -- more than one TPT table (gate G7) -------------------------------------
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Fund A'
+    for sheet_ws in (ws, wb.create_sheet('Fund B')):
+        for j, h in enumerate(header, start=1):
+            sheet_ws.cell(1, j, h)
+        for i, row in enumerate(rows, start=2):
+            for j, v in enumerate(row, start=1):
+                if v is not None:
+                    sheet_ws.cell(i, j, v)
+    wb.save(os.path.join(outdir, 'm1_two_sheets.xlsx'))
+    expected.append({'file': 'm1_two_sheets.xlsx', 'note': 'a second TPT table on another sheet',
+                     'rating': 'Reject', 'gate': 'G7', 'max_score': 40.0, 'fails': [],
+                     'passes': ['S3'], 'min_score': None, 'exact_score': None})
+
+    fixture('m2_second_block.xlsx', 'a second header block below the first table',
+            header, rows + [[None] * len(header), list(header)] + [list(r) for r in rows],
+            rating='Reject', gate='G7', max_score=40.0)
+
+    # -- data types and date formats --------------------------------------------
+    r = clone()
+    j = col(header, '5')
+    r[0][j] = 'about 1m'
+    fixture('t1_text_in_number_column.xlsx', 'text where a number is expected',
+            header, r, fails=['V1'])
+
+    r = clone()
+    j = col(header, '6')
+    r[0][j] = '31/12/2026'
+    r[1][j] = '2026.12.31'
+    fixture('t2_mixed_date_formats.xlsx', 'one date column written in three formats',
+            header, r, fails=['V2'])
+
     # A cover page that happens to be named "Data" once hid the real positions
     # and sent the file to gate G2 with a score of 0.
     wb = openpyxl.Workbook()

@@ -20,6 +20,7 @@ DEFAULTS: Dict[str, Any] = {
     'gates': {
         'min_mapped_columns': 10,
         'wrong_version_cap': 40,
+        'multiple_tables_cap': 40,
         'missing_mandatory': {'share': 0.20, 'cap': 49},
         'critical_failure_cap': 94,
     },
