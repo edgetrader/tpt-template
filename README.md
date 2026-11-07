@@ -7,10 +7,13 @@ needs to fix.
 
 ```
 cd app
-python tpt_score.py --in ../data
+python tpt_score.py  --in data     # score the files, write the reports
+python tpt_concat.py --in data     # combine the accepted files into one table
 ```
 
 Reports land in `output/<input folder>/`, e.g. `output/data/`; the latest run replaces the previous one.
+`tpt_concat.py` adds `tpt_combined.xlsx` there: every accepted file in one table, with a
+`source` and a `gp_name` column and each column converted to one data type.
 
 ## What is here
 

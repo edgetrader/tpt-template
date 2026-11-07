@@ -33,11 +33,19 @@ def token_of(name) -> Optional[str]:
     """``8b_Total_number_of_shares`` -> ``8b``. None when there is no number."""
     if name is None:
         return None
-    m = TOKEN_RE.match(str(name))
+    text = str(name)
+    m = TOKEN_RE.match(text)
     if not m:
-        m = re.match(r'^\s*(\d+)\s*([a-zA-Z]?)\s*$', str(name))
-        if not m:
-            return None
+        m = re.match(r'^\s*(\d+)\s*([a-zA-Z]?)\s*$', text)
+    if not m:
+        # GP numbering styles: "Field 26 - Valuation weight", "124) Duration",
+        # "123-Fund CIC", "94bis_Vega" (bis = the lettered field 94b).
+        m = re.match(r'^\s*(?:field|item|no\.?|#)?\s*(\d{1,4})\s*(bis|[a-zA-Z](?![a-zA-Z]))?\s*[)\-:._ ]',
+                     text, re.I)
+        if m:
+            letter = (m.group(2) or '').lower()
+            return m.group(1) + ('b' if letter == 'bis' else letter)
+        return None
     return m.group(1) + m.group(2).lower()
 
 

@@ -23,7 +23,8 @@ DEFAULT_OUT = os.path.join(os.path.dirname(APP_DIR), 'output')
 
 # Every file a run writes; a new run removes them first so nothing stale is left.
 REPORT_FILES = ('summary.xlsx', 'TPT_scorecards.xlsx', 'accepted_files.xlsx', 'run_summary.html',
-                'management_summary.html', 'summary.csv', 'run_stats.json')
+                'management_summary.html', 'summary.csv', 'run_stats.json',
+                'tpt_combined.xlsx')
 
 
 def build_parser() -> argparse.ArgumentParser:

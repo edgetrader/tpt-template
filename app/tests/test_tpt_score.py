@@ -1222,5 +1222,75 @@ class TestExcelOutputIsClean(unittest.TestCase):
         self.assertTrue(all(r[5] for r in rows), 'every check needs a plain explanation')
 
 
+class TestConcat(unittest.TestCase):
+    """tpt_concat: one table from the accepted files of a run."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix='tpt_cat_')
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+
+    def test_values_are_converted_to_the_column_type(self):
+        import datetime as _dt
+        from tpt_score.concat import Bad, convert
+        self.assertEqual(convert('number', '1,234.50'), 1234.5)
+        self.assertEqual(convert('number', '1.234,50'), 1234.5)
+        self.assertEqual(convert('integer', '3'), 3)
+        self.assertEqual(convert('date', '30/09/2026'), _dt.date(2026, 9, 30))
+        self.assertEqual(convert('date', _dt.datetime(2026, 9, 30)), _dt.date(2026, 9, 30))
+        self.assertEqual(convert('date', 46295), _dt.date(2026, 9, 30))
+        self.assertEqual(convert('currency', ' eur '), 'EUR')
+        self.assertEqual(convert('flag', 'yes'), 'Y')
+        self.assertEqual(convert('text', 12345.0), '12345')
+        self.assertIsNone(convert('number', '  '))
+        for kind, value in (('number', 'about 1m'), ('date', 'Q3'), ('number', 'N/A'),
+                            ('number', '#REF!'), ('flag', 'maybe')):
+            with self.assertRaises(Bad):
+                convert(kind, value)
+
+    def test_gp_numbering_styles_map_to_fields(self):
+        for header, token in (('Field 26 - Valuation weight', '26'), ('124) Duration', '124'),
+                              ('123-Fund CIC', '123'), ('94bis_Vega', '94b')):
+            self.assertEqual(token_of(header), token)
+        self.assertIsNone(token_of('Comment'))
+
+    def test_combined_table_from_a_run(self):
+        import datetime as _dt
+        import openpyxl
+        from tpt_score import concat
+        folder = os.path.join(self.dir, 'Q4 2026')
+        os.makedirs(folder)
+        for name in ('clean.xlsx', 's6_extra_columns.xlsx', 't1_text_in_number_column.xlsx',
+                     's4_renamed.xlsx', 'g1_corrupt.xlsx'):
+            shutil.copy(os.path.join(DATA, name), folder)
+        out = os.path.join(self.dir, 'out')
+        cli.run(['--in', folder, '--out', out, '--template', TEMPLATE, '--quiet'])
+        rc = concat.run(['--in', folder, '--out', out, '--template', TEMPLATE, '--quiet'])
+        self.assertEqual(rc, 0)
+        book = os.path.join(out, 'Q4 2026', 'tpt_combined.xlsx')
+        self.assertEqual(excel_problems(book), [])
+        wb = openpyxl.load_workbook(book)
+        rows = [[c.value for c in r] for r in wb['Combined'].iter_rows()]
+        head = rows[0]
+        self.assertEqual(head[:2], ['source', 'gp_name'])
+        self.assertEqual(head[2:2 + len(fields().fields)], [f.name for f in fields().fields])
+        self.assertIn('GP internal ref', head)                   # extra column kept at the end
+        body = rows[1:]
+        sources = {r[0] for r in body}
+        self.assertTrue(all(os.path.isabs(s) for s in sources))
+        self.assertNotIn(os.path.join(folder, 'g1_corrupt.xlsx'), sources)
+        i6 = head.index(fields().get('6').name)
+        i5 = head.index(fields().get('5').name)
+        self.assertTrue(all(isinstance(r[i6], _dt.datetime) for r in body if r[i6] is not None))
+        self.assertTrue(all(isinstance(r[i5], (int, float)) for r in body if r[i5] is not None))
+        log = [[c.value for c in r] for r in wb['Conversion log'].iter_rows()][1:]
+        self.assertTrue(any(r[4] == 'about 1m' and r[5] == 'not a number' for r in log))
+
+    def test_missing_accepted_list_is_a_clear_error(self):
+        from tpt_score import concat
+        rc = concat.run(['--in', DATA, '--out', os.path.join(self.dir, 'none'),
+                         '--template', TEMPLATE, '--quiet'])
+        self.assertEqual(rc, 2)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

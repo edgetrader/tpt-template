@@ -62,6 +62,34 @@ The V7 workbook is found automatically when it sits in `templates/` next to
 the submissions folder. Otherwise pass `--template`.
 
 
+### Combining the accepted files: `tpt_concat.py`
+
+After a scoring run, combine every file on its accepted list (Accept and Minor fixes) into
+one table:
+
+```
+python tpt_score.py  --in "2026 Q4"
+python tpt_concat.py --in "2026 Q4"
+```
+
+`tpt_concat.py` takes the same `--in`, `--settings`, `--out` and `--template` options. It reads
+`output/<input folder>/accepted_files.xlsx` and writes `tpt_combined.xlsx` beside it:
+
+| Sheet | Content |
+| --- | --- |
+| Combined | One row per position: `source` (full path of the file), `gp_name`, every V7 field in template order under its template name, then any extra columns the GPs added |
+| Conversion log | Every value that was blanked: file, row, column, original value, reason |
+| Files | Each file used, its GP, rows contributed and any note |
+
+Every column gets one type: numbers become real numbers (`1,234.50`, `1.234,50`, `(1,234)`,
+`48.23%` and `1.5M` are converted; integer fields become whole numbers); dates become real
+Excel dates shown `yyyy-mm-dd` (from date cells, ISO, `dd/mm/yyyy`, `dd.mm.yyyy`, `yyyymmdd`
+or serial numbers); currency, country and CIC codes are trimmed and upper case; field 11 is
+`Y` or `N`; text is trimmed. A value that cannot be converted, an Excel error or a placeholder
+(N/A, TBC, NULL, -) is left blank and listed in the Conversion log. Extra GP columns are kept
+as text. A new `tpt_score.py` run over the folder removes the old `tpt_combined.xlsx`, so the
+combined table never outlives the accepted list it came from.
+
 ### Settings file: paths you use every run
 
 `<project>/config/settings.yaml` keeps the two paths that belong to your machine, so a run
@@ -265,6 +293,7 @@ tpt_score/
   scorer.py             weights, floors, gates, bands
   remarks.py            plain-language remarks and the gate reference table
   reporters/management.py  the management page and run_stats.json
+  concat.py             tpt_concat.py: combine accepted files into one typed table
   settings.py           config/settings.yaml: input folder and fund reference paths
   fundref.py            fund reference: GP lookup by fuzzy fund-name match
   profile.py            per-column data-type mismatches and date formats
