@@ -6,8 +6,8 @@ import html
 import os
 from typing import List
 
-from ..remarks import (FINDING_LABELS, column_findings, dates_standard, gate_reference,
-                       template_problems)
+from ..remarks import (FINDING_LABELS, REMARK_LABELS, column_findings, dates_standard,
+                       gate_reference, remark_findings, template_problems)
 from .console import usable_files
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
@@ -43,7 +43,7 @@ td.top{vertical-align:top}
 .f.missing b{background:#fcd5b4}.f.extra b{background:#fff2cc}
 .f.renamed b{background:#ffeb9c}.f.blanks b{background:#ffc7CE}
 .f.types b{background:#f4b6c2}.f.dates b{background:#ffe699}.f.dates_ok b{background:#e2efda}
-.f.bad{background:#ffc7ce;color:#9c0006;font-weight:600;padding:1px 5px;border-radius:3px}
+.f.bad b{background:#ffc7ce;color:#9c0006}.f.layout b{background:#e7e6e6}.f.checks b{background:#dde5f0}
 .f b{padding:0 4px;border-radius:2px}
 details{margin-top:4px}summary{cursor:pointer;color:#1f3864;font-weight:600;font-size:11.5px}
 .paths{font:10.5px/1.5 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;margin-top:5px}
@@ -66,6 +66,66 @@ def _bar(pct: float, colour: str) -> str:
     """A full-width track with the bar filling its share of it."""
     return ('<div class="track"><span class="bar" style="width:%.1f%%;background:%s"></span></div>'
             % (max(0.0, min(100.0, pct)), colour))
+
+
+# Highlight class per finding, so every report colours a finding the same way.
+LINE_CLASS = {'notscored': 'bad', 'template': 'bad', 'tables': 'bad', 'layout': 'layout',
+              'repeated': 'extra', 'missing': 'missing', 'extra': 'extra', 'renamed': 'renamed',
+              'blanks': 'blanks', 'types': 'types', 'checks': 'checks'}
+ORDER = ['notscored', 'template', 'tables', 'missing', 'extra', 'renamed', 'repeated', 'blanks',
+         'types', 'dates', 'layout', 'checks']
+
+
+def _line(cls: str, label: str, items, limit: int = 6) -> str:
+    """<b>Label (n)</b> item; item; ... and N more: the one format for every finding."""
+    more = ' and %d more' % (len(items) - limit) if len(items) > limit else ''
+    return ('<div class="f %s"><b>%s (%d)</b> %s%s</div>'
+            % (cls, html.escape(label), len(items), html.escape('; '.join(items[:limit])), more))
+
+
+def finding_lines(s) -> str:
+    """Every finding for one file, in a fixed order and one format."""
+    cols = column_findings(s)
+    rems = remark_findings(s)
+    labels = dict(FINDING_LABELS)
+    labels.update(dict(REMARK_LABELS))
+    cell = []
+    head = []
+    if s.fund_ref_status:
+        if s.fund_ref_status in ('exact', 'close'):
+            head.append('GP: <b>%s</b>' % html.escape(s.gp_name))
+        else:
+            head.append('GP: <b class="down">not identified</b>')
+    if s.sheet:
+        head.append('Tab: <span class="tab">%s</span>' % html.escape(s.sheet))
+    if head:
+        cell.append('<div class="f">%s</div>' % ' &middot; '.join(head))
+    if s.fund_ref_status:
+        text = {'exact': 'matched to %s' % s.ref_fund,
+                'close': 'close match to %s, please confirm' % s.ref_fund,
+                'ambiguous': 'matches more than one GP: %s' % s.fund_ref_label.split(': ', 1)[-1],
+                'no name': 'no fund name in the file name'}.get(
+            s.fund_ref_status, 'fund in the file name is not in the fund reference')
+        cls = 'dates_ok' if s.fund_ref_status == 'exact' else (
+            'renamed' if s.fund_ref_status == 'close' else 'bad')
+        cell.append('<div class="f %s"><b>Fund reference</b> %s</div>' % (cls, html.escape(text)))
+    for key in ORDER:
+        if key == 'dates':
+            items = cols['dates']
+            if items:
+                if dates_standard(s):
+                    cell.append('<div class="f dates_ok"><b>Date formats (%d)</b> all yyyy-mm-dd</div>'
+                                % len(items))
+                else:
+                    off = [i for i, c in zip(items, s.date_formats) if not c[4]]
+                    cell.append(_line('dates', 'Date formats not yyyy-mm-dd', off, 4))
+            continue
+        items = cols.get(key) if key in cols else rems.get(key, [])
+        if items:
+            cell.append(_line(LINE_CLASS[key], labels[key], items))
+    if not any(cols[k] for k in cols if k != 'dates') and not any(rems.values()):
+        cell.append('<div class="f">No issues found.</div>')
+    return ''.join(cell)
 
 
 def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
@@ -158,39 +218,10 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
                    '<tr><th>File</th><th class="n">Score</th><th>Rating</th>'
                    '<th>Findings against the V7 template</th></tr>')
         for s in shown:
-            find = column_findings(s)
-            cell = []
-            if s.fund_ref_status:
-                bad = s.fund_ref_status not in ('exact', 'close')
-                cell.append('<div class="f%s">GP: <b>%s</b> &middot; fund: %s</div>'
-                            % (' bad' if bad else '', html.escape(s.gp_name or 'not identified'),
-                               html.escape(s.fund_ref_label)))
-            if s.sheet:
-                cell.append('<div class="f">Tab: <span class="tab">%s</span></div>' % html.escape(s.sheet))
-            if s.remarks and s.remarks != 'No issues found.':
-                cell.append('<div class="f%s">%s</div>' % (' bad' if template_problems(s) else '',
-                                                          html.escape(s.remarks)))
-            for key, label in FINDING_LABELS:
-                items = find[key]
-                if key == 'dates':
-                    if items:
-                        ok = dates_standard(s)
-                        bad = [i for i, c in zip(items, s.date_formats) if not c[4]]
-                        text = ('all date columns use %s'
-                                % html.escape(s.date_formats[0][1][0][0]) if ok
-                                else html.escape('; '.join(bad[:4])) +
-                                (' and %d more' % (len(bad) - 4) if len(bad) > 4 else ''))
-                        cell.append('<div class="f %s"><b>%s</b> %s</div>'
-                                    % ('dates_ok' if ok else 'dates', label, text))
-                    continue
-                if items:
-                    more = ' and %d more' % (len(items) - 6) if len(items) > 6 else ''
-                    cell.append('<div class="f %s"><b>%s (%d)</b> %s%s</div>'
-                                % (key, label, len(items),
-                                   html.escape('; '.join(items[:6])), more))
+            out_cell = finding_lines(s)
             out.append('<tr><td class="wrap top">%s</td><td class="n top">%.1f</td>'
                        '<td class="top">%s</td><td class="wrap">%s</td></tr>'
-                       % (html.escape(s.filename), s.score, _pill(s.rating), ''.join(cell)))
+                       % (html.escape(s.filename), s.score, _pill(s.rating), out_cell))
         out.append('</table>')
         if len(need) > len(shown):
             out.append('<div style="color:#888;font-size:10.5px;margin-top:3px">%d more files '

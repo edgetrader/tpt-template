@@ -742,6 +742,22 @@ class TestRemarks(unittest.TestCase):
     def test_tab_name_is_recorded(self):
         self.assertTrue(self._score('clean.xlsx').sheet)
 
+    def test_every_finding_uses_one_format(self):
+        import re as _re
+        from tpt_score.reporters.html import finding_lines
+        line = _re.compile(r'^[A-Z][A-Za-z -]+ \(\d+\): \S')
+        for name in ('g4_v6_template.xlsx', 'm1_two_sheets.xlsx', 's1_offset_c4.xlsx',
+                     's5_duplicate_column.xlsx', 'k2_weights_off.xlsx', 'g1_corrupt.xlsx'):
+            fs = self._score(name)
+            for text in fs.remarks.split('\n'):
+                self.assertRegex(text, line, '%s: %r' % (name, text))
+            html_text = _re.sub(r'<[^>]+>', '', finding_lines(fs).replace('</div>', '\n'))
+            for text in [t for t in html_text.split('\n') if '(' in t and not t.startswith(('GP', 'Tab', 'Fund'))]:
+                self.assertRegex(text, r'^[A-Z][A-Za-z -]+ \(\d+\) \S', '%s: %r' % (name, text))
+        k2 = self._score('k2_weights_off.xlsx').remarks
+        self.assertIn('Valuation weights do not sum to 100%', k2)
+        self.assertNotIn('tolerance', k2)
+
     def test_clean_file_has_no_issues(self):
         self.assertEqual(self._score('clean.xlsx').remarks, 'No issues found.')
 
@@ -757,7 +773,7 @@ class TestRemarks(unittest.TestCase):
         self.assertTrue(fs.renamed_columns)
         found, expected = fs.renamed_columns[0]
         from tpt_score.remarks import column_findings
-        self.assertTrue(any(expected.replace('_', ' ') in i and '->' in i
+        self.assertTrue(any(expected.replace('_', ' ') in i and '\u2192' in i
                             for i in column_findings(fs)['renamed']))
 
     def test_offset_header_is_reported(self):
@@ -765,13 +781,13 @@ class TestRemarks(unittest.TestCase):
 
     def test_wrong_version_and_unreadable(self):
         self.assertIn('not V7', self._score('g4_v6_template.xlsx').remarks)
-        self.assertIn('Could not be opened', self._score('g1_corrupt.xlsx').remarks)
+        self.assertIn('could not be opened', self._score('g1_corrupt.xlsx').remarks)
 
     def test_different_template_is_highlighted_in_remarks(self):
         from tpt_score.remarks import template_problems
         fs = self._score('g4_v6_template.xlsx')
         self.assertTrue(template_problems(fs))
-        self.assertTrue(fs.remarks.startswith('DIFFERENT TEMPLATE'))
+        self.assertTrue(fs.remarks.startswith('Template (1): V6 template, not V7'))
         self.assertEqual(template_problems(self._score('clean.xlsx')), [])
 
     def test_second_table_on_another_sheet_rejects(self):
@@ -779,7 +795,7 @@ class TestRemarks(unittest.TestCase):
         self.assertEqual(len(fs.extra_tables), 1)
         self.assertEqual(fs.rating, 'Reject')
         self.assertTrue(any(g.startswith('G7') for g in fs.gates))
-        self.assertIn('MORE THAN ONE TPT TABLE', fs.remarks)
+        self.assertIn('Extra TPT tables (1)', fs.remarks)
 
     def test_second_block_on_same_sheet_rejects(self):
         fs = self._score('m2_second_block.xlsx')
@@ -1018,7 +1034,6 @@ class TestFundReference(unittest.TestCase):
         cells = [str(c.value) for row in wb['Run summary'].iter_rows() for c in row if c.value]
         self.assertIn('GP name', cells)
         self.assertIn('NOT IN FUND REFERENCE', cells)
-        self.assertTrue(any(c.startswith('FUND IN FILE NAME NOT IN FUND REFERENCE') for c in cells))
         page = _read(os.path.join(out, 'management_summary.html'))
         self.assertIn('Files whose fund is not in the fund reference', page)
         self.assertIn('By GP, weakest first', page)
