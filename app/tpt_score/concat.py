@@ -263,6 +263,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help='the output root used by tpt_score.py (default: %s)' % DEFAULT_OUT)
     p.add_argument('-t', '--template', metavar='FILE', help='the FinDatEx V7 workbook')
     p.add_argument('-c', '--config', metavar='FILE', help='rules.yaml')
+    p.add_argument('--no-timestamp', action='store_true',
+                   help='the reports were written straight into --out (tpt_score.py --no-timestamp)')
     p.add_argument('-q', '--quiet', action='store_true')
     p.add_argument('--version', action='version', version='tpt_concat %s' % __version__)
     return p
@@ -289,7 +291,7 @@ def run(args=None) -> int:
               file=sys.stderr)
         return 2
 
-    outdir = os.path.join(opts.output, input_label(opts.input, given))
+    outdir = opts.output if opts.no_timestamp else os.path.join(opts.output, input_label(opts.input, given))
     accepted = os.path.join(outdir, ACCEPTED_NAME)
     if not os.path.isfile(accepted):
         print('no %s in %s: run tpt_score.py on this folder first' % (ACCEPTED_NAME, outdir),

@@ -7,7 +7,7 @@ import os
 from typing import List
 
 from ..remarks import (FINDING_LABELS, REMARK_LABELS, column_findings, dates_standard,
-                       gate_reference, remark_findings, template_problems, check_reference)
+                       gate_reference, remark_findings, check_reference)
 from .console import usable_files
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 

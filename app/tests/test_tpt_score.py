@@ -908,7 +908,6 @@ class TestManagementSummary(unittest.TestCase):
         self.assertEqual(stats['kpis']['files'], len(stats['files']))
 
     def test_second_run_compares_with_the_first(self):
-        import time
         self._run()
         d = self._run()
         page = _read(os.path.join(d, 'management_summary.html'))
@@ -1284,6 +1283,59 @@ class TestConcat(unittest.TestCase):
         self.assertTrue(all(isinstance(r[i5], (int, float)) for r in body if r[i5] is not None))
         log = [[c.value for c in r] for r in wb['Conversion log'].iter_rows()][1:]
         self.assertTrue(any(r[4] == 'about 1m' and r[5] == 'not a number' for r in log))
+
+    def test_edge_cases(self):
+        """No accepted files, a file moved away after scoring, --no-timestamp, GP names."""
+        import openpyxl
+        from tpt_score import concat
+        out = os.path.join(self.dir, 'out')
+        # only unusable files: an empty table, not a crash
+        bad = os.path.join(self.dir, 'bad')
+        os.makedirs(bad)
+        shutil.copy(os.path.join(DATA, 'g1_corrupt.xlsx'), bad)
+        cli.run(['--in', bad, '--out', out, '--template', TEMPLATE, '--quiet'])
+        self.assertEqual(concat.run(['--in', bad, '--out', out, '--template', TEMPLATE, '--quiet']), 0)
+        book = os.path.join(out, 'bad', 'tpt_combined.xlsx')
+        self.assertEqual(excel_problems(book), [])
+        self.assertEqual(openpyxl.load_workbook(book)['Combined'].max_row, 1)
+        # a file moved away after scoring is skipped and noted
+        moved = os.path.join(self.dir, 'moved')
+        os.makedirs(moved)
+        for name in ('clean.xlsx', 's1_title_rows.xlsx'):
+            shutil.copy(os.path.join(DATA, name), moved)
+        cli.run(['--in', moved, '--out', out, '--template', TEMPLATE, '--quiet'])
+        os.remove(os.path.join(moved, 'clean.xlsx'))
+        self.assertEqual(concat.run(['--in', moved, '--out', out, '--template', TEMPLATE, '--quiet']), 0)
+        notes = [[c.value for c in r] for r in
+                 openpyxl.load_workbook(os.path.join(out, 'moved', 'tpt_combined.xlsx'))['Files'].iter_rows()]
+        self.assertTrue(any(r[3] and 'not found' in str(r[3]) for r in notes))
+        # --no-timestamp on both scripts
+        flat = os.path.join(self.dir, 'flat')
+        cli.run(['--in', moved, '--out', flat, '--template', TEMPLATE, '--quiet', '--no-timestamp'])
+        self.assertEqual(concat.run(['--in', moved, '--out', flat, '--template', TEMPLATE, '--quiet',
+                                     '--no-timestamp']), 0)
+        self.assertTrue(os.path.isfile(os.path.join(flat, 'tpt_combined.xlsx')))
+
+    def test_gp_name_comes_from_the_fund_reference(self):
+        import openpyxl
+        from tpt_score import concat
+        ref = os.path.join(self.dir, 'fund_reference.xlsx')
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Fund Name'
+        ws.append(['GP Name', 'Fund Name'])
+        ws.append(['Alpha Partners', 'Alpha Private Equity Fund II'])
+        wb.save(ref)
+        folder = os.path.join(self.dir, 'named')
+        os.makedirs(folder)
+        shutil.copy(os.path.join(DATA, 'clean.xlsx'), os.path.join(folder, 'Alpha PE Fund II TPT.xlsx'))
+        out = os.path.join(self.dir, 'out')
+        cli.run(['--in', folder, '--out', out, '--template', TEMPLATE, '--quiet', '--fund-ref', ref])
+        concat.run(['--in', folder, '--out', out, '--template', TEMPLATE, '--quiet'])
+        rows = list(openpyxl.load_workbook(os.path.join(out, 'named', 'tpt_combined.xlsx'))['Combined']
+                    .iter_rows(min_row=2, values_only=True))
+        self.assertTrue(rows)
+        self.assertEqual({r[1] for r in rows}, {'Alpha Partners'})
 
     def test_missing_accepted_list_is_a_clear_error(self):
         from tpt_score import concat
