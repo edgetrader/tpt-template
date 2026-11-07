@@ -30,9 +30,14 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='example:\n'
                '  python tpt_score.py --in ../submissions/2026-Q3\n'
-               '  python tpt_score.py --in ../submissions/2026-Q3 --out ../output\n')
-    p.add_argument('-i', '--in', dest='input', required=True, metavar='FOLDER',
-                   help='folder holding the TPT files to check (a single file also works)')
+               '  python tpt_score.py --in ../submissions/2026-Q3 --out ../output\n'
+               '  python tpt_score.py            (paths taken from config/settings.yaml)\n')
+    p.add_argument('-i', '--in', dest='input', default=None, metavar='FOLDER',
+                   help='folder holding the TPT files to check (a single file also works); '
+                        'default: input_folder in config/settings.yaml')
+    p.add_argument('-s', '--settings', default=None, metavar='FILE',
+                   help='settings file with input_folder and fund_reference '
+                        '(default: config/settings.yaml in the project folder, if present)')
     p.add_argument('-o', '--out', dest='output', default=DEFAULT_OUT, metavar='FOLDER',
                    help='where the reports go (default: the output folder beside the app '
                         'folder, currently %s)' % DEFAULT_OUT)
@@ -45,7 +50,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--pattern', default='*', metavar='GLOB',
                    help='only files matching this pattern (default: every Excel file)')
     p.add_argument('-f', '--fund-ref', default=None, metavar='XLSX',
-                   help='fund reference workbook; its "Fund Name" tab lists GP Name and Fund Name')
+                   help='fund reference workbook; its "Fund Name" tab lists GP Name and Fund Name '
+                        '(default: fund_reference in config/settings.yaml)')
     p.add_argument('--gp-map', default=None, help='CSV of pattern,GP name to group funds by GP')
     p.add_argument('--csv', action='store_true', help='also write summary.csv')
     p.add_argument('--no-excel', action='store_true', help='skip the Excel workbook')
@@ -111,6 +117,24 @@ def run(args=None) -> int:
     if problems:
         print('config error:\n  ' + '\n  '.join(problems), file=sys.stderr)
         return 2
+
+    # Paths not given on the command line come from config/settings.yaml.
+    from .settings import SettingsError, load_settings
+    try:
+        settings = load_settings(opts.settings)
+    except SettingsError as exc:
+        print('settings error: %s' % exc, file=sys.stderr)
+        return 2
+    if not opts.input:
+        opts.input = settings.input_folder
+    if not opts.fund_ref and settings.fund_reference:
+        opts.fund_ref = settings.fund_reference
+    if not opts.input:
+        print('no input folder: pass --in FOLDER or set input_folder in %s'
+              % (settings.path or 'config/settings.yaml'), file=sys.stderr)
+        return 2
+    if settings.path and not opts.quiet:
+        print('settings: %s' % settings.path)
 
     try:
         template = resolve_template(cfg, opts.template, opts.input)

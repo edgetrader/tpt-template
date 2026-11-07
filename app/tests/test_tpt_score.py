@@ -76,6 +76,9 @@ def score(name, cfg=None):
 
 
 def setUpModule():
+    # A settings file on the developer's machine must not leak into the tests.
+    from tpt_score import settings as _settings
+    _settings.DEFAULT_SETTINGS = os.path.join(HERE, 'no-such-settings.yaml')
     if not os.path.isfile(TEMPLATE):
         raise unittest.SkipTest('V7 template not found at %s; set TPT_TEMPLATE' % TEMPLATE)
     if not os.path.isfile(os.path.join(DATA, 'expected.json')):
@@ -951,6 +954,51 @@ class TestFundReference(unittest.TestCase):
                  '--fund-ref', os.path.join(folder, 'funds.xlsx')])
         with open(os.path.join(out, 'run_stats.json'), encoding='utf-8') as fh:
             self.assertEqual(json.load(fh)['kpis']['files'], 1)
+
+
+class TestSettings(unittest.TestCase):
+    """config/settings.yaml: input folder and fund reference paths."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix='tpt_set_')
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+
+    def _write(self, text):
+        path = os.path.join(self.dir, 'settings.yaml')
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write(text)
+        return path
+
+    def test_paths_are_read_and_resolved(self):
+        from tpt_score.settings import PROJECT_DIR, load_settings
+        s = load_settings(self._write('input_folder: data\nfund_reference: ~/refs/fund_reference.xlsx\n'))
+        self.assertEqual(s.input_folder, os.path.join(PROJECT_DIR, 'data'))
+        self.assertEqual(s.fund_reference, os.path.expanduser('~/refs/fund_reference.xlsx'))
+
+    def test_unknown_key_and_missing_file_are_errors(self):
+        from tpt_score.settings import SettingsError, load_settings
+        with self.assertRaises(SettingsError):
+            load_settings(self._write('input_fodler: data\n'))
+        with self.assertRaises(SettingsError):
+            load_settings(os.path.join(self.dir, 'absent.yaml'))
+
+    def test_run_takes_the_input_folder_from_settings(self):
+        path = self._write('input_folder: %s\n' % DATA)
+        out = os.path.join(self.dir, 'out')
+        rc = cli.run(['--settings', path, '--out', out, '--template', TEMPLATE, '--quiet',
+                      '--no-timestamp'])
+        self.assertIn(rc, (0, 1))
+        self.assertTrue(os.path.isfile(os.path.join(out, 'summary.xlsx')))
+
+    def test_command_line_wins_over_settings(self):
+        path = self._write('input_folder: /no/such/folder\n')
+        out = os.path.join(self.dir, 'out')
+        rc = cli.run(['--settings', path, '--in', DATA, '--out', out, '--template', TEMPLATE,
+                      '--quiet', '--no-timestamp'])
+        self.assertIn(rc, (0, 1))
+
+    def test_no_input_anywhere_is_a_clear_error(self):
+        self.assertEqual(cli.run(['--quiet', '--template', TEMPLATE]), 2)
 
 
 if __name__ == '__main__':

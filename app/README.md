@@ -60,6 +60,26 @@ The V7 workbook is found automatically when it sits in `templates/` next to
 the submissions folder. Otherwise pass `--template`.
 
 
+### Settings file: paths you use every run
+
+`<project>/config/settings.yaml` keeps the two paths that belong to your machine, so a run
+needs no options at all:
+
+```yaml
+input_folder: /Users/me/Documents/claude-projects/tpt-template/data
+fund_reference: /Users/me/Documents/GP/fund_reference.xlsx
+```
+
+```
+python tpt_score.py                    # uses both paths
+python tpt_score.py --in ../2026-Q4    # the command line always wins
+python tpt_score.py --settings other.yaml
+```
+
+A relative path is read from the project folder and `~` means your home folder. The file is
+optional; without it `--in` is required. `config/settings.yaml` is not committed to git
+(it holds local paths); `config/settings.example.yaml` is the template to copy.
+
 ### Fund reference: which GP sent the file
 
 ```
@@ -68,7 +88,7 @@ python tpt_score.py --in ../data --fund-ref ../reference/funds.xlsx
 
 `--fund-ref` (`-f`) takes a workbook with a **Fund Name** tab holding a table with
 **GP Name** and **Fund Name** columns (title rows above the table are fine; other columns are
-ignored). Name the file `fund_reference*.xlsx` and git ignores it, as GP and fund names stay out of the repository. The fund name in each TPT (field 3,
+ignored). `fund_reference.example.xlsx` shows the layout. The fund name in each TPT (field 3,
 else field 1) is matched to that table:
 
 | Result | Meaning | Highlight |
@@ -187,7 +207,7 @@ settings that produced it.
 
 ```
 python tests/make_test_data.py      # build the fixtures (optional; the tests do it)
-python tests/test_tpt_score.py      # 95 tests
+python tests/test_tpt_score.py      # 100 tests
 ```
 
 `tests/data/` holds 33 fixtures: one clean file that scores exactly 100.0, one
@@ -232,6 +252,7 @@ tpt_score/
   scorer.py             weights, floors, gates, bands
   remarks.py            plain-language remarks and the gate reference table
   reporters/management.py  the management page and run_stats.json
+  settings.py           config/settings.yaml: input folder and fund reference paths
   fundref.py            fund reference: GP lookup by fuzzy fund-name match
   profile.py            per-column data-type mismatches and date formats
   checks/               the 24 checks, one module per dimension
