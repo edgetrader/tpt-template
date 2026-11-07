@@ -990,6 +990,16 @@ class TestSettings(unittest.TestCase):
         self.assertIn(rc, (0, 1))
         self.assertTrue(os.path.isfile(os.path.join(out, 'summary.xlsx')))
 
+    def test_relative_in_is_read_from_the_input_folder(self):
+        root = os.path.dirname(DATA)                    # .../tests
+        path = self._write('input_folder: %s\n' % root)
+        out = os.path.join(self.dir, 'out')
+        rc = cli.run(['--settings', path, '--in', os.path.basename(DATA), '--out', out,
+                      '--template', TEMPLATE, '--quiet', '--no-timestamp'])
+        self.assertIn(rc, (0, 1))
+        with open(os.path.join(out, 'run_stats.json'), encoding='utf-8') as fh:
+            self.assertEqual(os.path.abspath(json.load(fh)['folder']), os.path.abspath(DATA))
+
     def test_command_line_wins_over_settings(self):
         path = self._write('input_folder: /no/such/folder\n')
         out = os.path.join(self.dir, 'out')

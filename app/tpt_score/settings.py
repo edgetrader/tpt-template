@@ -3,7 +3,7 @@
 ``<project>/config/settings.yaml`` holds paths that belong to one machine, so
 they need not be typed on every run:
 
-    input_folder: /path/to/submissions        # root folder of the TPT files
+    input_folder: /path/to/submissions        # root folder; --in is read from here
     fund_reference: /path/to/fund_reference.xlsx
 
 A relative path is taken from the project folder, ``~`` is the home folder.

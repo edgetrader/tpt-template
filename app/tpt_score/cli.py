@@ -31,10 +31,12 @@ def build_parser() -> argparse.ArgumentParser:
         epilog='example:\n'
                '  python tpt_score.py --in ../submissions/2026-Q3\n'
                '  python tpt_score.py --in ../submissions/2026-Q3 --out ../output\n'
-               '  python tpt_score.py            (paths taken from config/settings.yaml)\n')
+               '  python tpt_score.py            (scores input_folder from config/settings.yaml)\n'
+               '  python tpt_score.py --in 2026-Q4   (scores <input_folder>/2026-Q4)\n')
     p.add_argument('-i', '--in', dest='input', default=None, metavar='FOLDER',
-                   help='folder holding the TPT files to check (a single file also works); '
-                        'default: input_folder in config/settings.yaml')
+                   help='folder holding the TPT files to check (a single file also works). '
+                        'A relative path is read from input_folder in config/settings.yaml; '
+                        'left out, input_folder itself is scored')
     p.add_argument('-s', '--settings', default=None, metavar='FILE',
                    help='settings file with input_folder and fund_reference '
                         '(default: config/settings.yaml in the project folder, if present)')
@@ -125,8 +127,12 @@ def run(args=None) -> int:
     except SettingsError as exc:
         print('settings error: %s' % exc, file=sys.stderr)
         return 2
+    # input_folder is the root: --in names a folder under it, or the root itself
+    # when --in is left out. An absolute --in is used as given.
     if not opts.input:
         opts.input = settings.input_folder
+    elif settings.input_folder and not os.path.isabs(os.path.expanduser(opts.input)):
+        opts.input = os.path.normpath(os.path.join(settings.input_folder, opts.input))
     if not opts.fund_ref and settings.fund_reference:
         opts.fund_ref = settings.fund_reference
     if not opts.input:

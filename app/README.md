@@ -71,14 +71,18 @@ fund_reference: /Users/me/Documents/GP/fund_reference.xlsx
 ```
 
 ```
-python tpt_score.py                    # uses both paths
-python tpt_score.py --in ../2026-Q4    # the command line always wins
+python tpt_score.py                        # scores input_folder itself
+python tpt_score.py --in 2026-Q4           # scores <input_folder>/2026-Q4
+python tpt_score.py --in /other/folder     # an absolute --in is used as given
 python tpt_score.py --settings other.yaml
 ```
 
+`input_folder` is the root of your submissions: a relative `--in` is read from it, not from
+the folder you run the command in. `--fund-ref` on the command line replaces `fund_reference`.
+
 A relative path is read from the project folder and `~` means your home folder. The file is
-optional; without it `--in` is required. It is committed with the project, so update the
-paths when you run from another machine.
+optional; without it `--in` is required. `config/settings.yaml` is not committed to git
+(it holds local paths); `config/settings.example.yaml` is the template to copy.
 
 ### Fund reference: which GP sent the file
 

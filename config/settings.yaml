@@ -1,8 +1,9 @@
 # Local settings for tpt_score. Command-line options override these.
 # A relative path is read from the project folder; ~ means your home folder.
 
-# Root folder holding the GP TPT submissions to score (add --recursive to include subfolders).
-input_folder: /Users/edsicage/Documents/claude-projects/tpt-template/data
+# Root folder of the GP TPT submissions. Run with no --in to score this folder,
+# or --in <subfolder> to score a folder under it (e.g. --in 2026-Q4).
+input_folder: /Users/edsicage/Documents/claude-projects/tpt-template
 
 # Fund reference workbook: its "Fund Name" tab lists GP Name and Fund Name.
 # Points at the sample for now; replace with your real fund reference.
