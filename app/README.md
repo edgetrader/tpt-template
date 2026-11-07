@@ -14,9 +14,11 @@ it, in a timestamped folder holding:
 
 | File | What it is |
 | --- | --- |
-| `TPT_scorecards.xlsx` | Run summary, dimension scores, check matrix, issue log, feedback, and one scorecard sheet per file |
-| `run_summary.html` | One-page summary for management. Print it to PDF |
+| `TPT_scorecards.xlsx` | Run summary, gate reference, dimension scores, check matrix, issue log, feedback, and one scorecard sheet per file |
+| `run_summary.html` | One-page summary for management, with a gate reference. Print it to PDF |
 | `summary.csv` | The summary table, for loading elsewhere |
+
+Every summary table has a **Remarks** column that says in plain words what is wrong with the file: which mandatory columns are missing, which column names differ from the template (and what they should read), repeated or extra columns, a table that does not start at A1, and the biggest content problems.
 
 ## Installing
 
@@ -149,7 +151,7 @@ settings that produced it.
 
 ```
 python tests/make_test_data.py      # build the fixtures (optional; the tests do it)
-python tests/test_tpt_score.py      # 65 tests
+python tests/test_tpt_score.py      # 72 tests
 ```
 
 `tests/data/` holds 33 fixtures: one clean file that scores exactly 100.0, one
@@ -192,6 +194,7 @@ tpt_score/
   mapper.py             columns to field numbers, version detection
   util.py               value parsing, check digits, reference lists
   scorer.py             weights, floors, gates, bands
+  remarks.py            plain-language remarks and the gate reference table
   checks/               the 24 checks, one module per dimension
   reporters/            Excel workbook, HTML summary, CSV, console recap
 tests/

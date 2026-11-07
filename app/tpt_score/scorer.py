@@ -66,6 +66,15 @@ class FileScore:
     fund_id: str = ''
     rules_version: str = ''
     scored_at: str = ''
+    missing_columns: List[str] = dc_field(default_factory=list)       # mandatory fields absent
+    renamed_columns: List[Any] = dc_field(default_factory=list)       # (header found, template name)
+    duplicate_columns: List[str] = dc_field(default_factory=list)
+    extra_columns: List[str] = dc_field(default_factory=list)
+
+    @property
+    def remarks(self) -> str:
+        from .remarks import build_remarks
+        return build_remarks(self)
 
     @property
     def readable(self) -> bool:
@@ -83,7 +92,24 @@ class FileScore:
                 round(self.dimensions['completeness'].score, 1) if self.dimensions else '',
                 round(self.dimensions['validity'].score, 1) if self.dimensions else '',
                 round(self.dimensions['consistency'].score, 1) if self.dimensions else '',
-                '; '.join(self.gates), self.error]
+                '; '.join(self.gates), self.error, self.remarks]
+
+
+def _column_findings(cmap, fields) -> Dict[str, Any]:
+    """Which columns are missing, renamed, repeated or extra, for the remarks."""
+    missing = []
+    for t in fields.mandatory_tokens:
+        if not cmap.has(t):
+            f = fields.get(t)
+            missing.append(f.name if f else t)
+    renamed = []
+    for c in cmap.renamed_columns:
+        f = fields.get(c.token)
+        renamed.append((str(c.header), f.name if f else c.token))
+    return dict(missing_columns=missing, renamed_columns=renamed,
+                duplicate_columns=[str(c.header) for c in cmap.duplicate_columns],
+                extra_columns=[str(c.header).strip() or '(blank header)'
+                               for c in cmap.unknown_columns])
 
 
 def _col_letter(n: int) -> str:
@@ -120,7 +146,8 @@ def score_file(path: str, fields, cfg: Config) -> FileScore:
     cmap = map_columns(table.header, fields)
     version = detect_version(table.header, table.rows, cmap, fields)
 
-    fs_kw = dict(sheet=table.sheet, positions=len(table.rows),
+    fs_kw = _column_findings(cmap, fields)
+    fs_kw.update(sheet=table.sheet, positions=len(table.rows),
                  mapped_columns=cmap.n_mapped, version=version,
                  recovery=list(table.recovery),
                  header_cell='%s%d' % (_col_letter(table.first_col), table.header_row))

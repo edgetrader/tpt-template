@@ -5,6 +5,7 @@ import collections
 import html
 from typing import List
 
+from ..remarks import gate_reference
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
 BAND_COLOUR = {'Accept': '#2e7d32', 'Minor fixes': '#b58100',
@@ -31,6 +32,9 @@ th{text-align:left;color:#666;font-weight:600;padding:3px 8px 3px 0;border-botto
 td{padding:3px 8px 3px 0;border-bottom:1px solid #f1f1f1;vertical-align:middle}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding-right:12px}
 td.clip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.wrap{white-space:normal;word-break:break-word;vertical-align:top;line-height:1.35}
+td.top{vertical-align:top}
+.gate{font-weight:600;white-space:nowrap}
 .track{background:#f1f1f1;border-radius:3px;height:14px;width:100%}
 .bar{height:14px;border-radius:3px;display:block}
 .pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10.5px;color:#fff;
@@ -133,22 +137,36 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
     out.append('</table></section></div></div>')
 
     # ---- full width, where the long text has room -------------------------
-    worst = sorted(scores, key=lambda x: (x.score, x.filename))[:10]
-    if worst:
+    need = sorted((x for x in scores if x.rating != 'Accept'), key=lambda x: (x.score, x.filename))
+    shown = need[:30]
+    if shown:
         out.append('<section><h2>Files needing attention, lowest first</h2><table>'
-                   '<colgroup><col style="width:36%"><col style="width:62px">'
-                   '<col style="width:96px"><col></colgroup>'
+                   '<colgroup><col style="width:24%"><col style="width:54px">'
+                   '<col style="width:92px"><col></colgroup>'
                    '<tr><th>File</th><th class="n">Score</th><th>Rating</th>'
-                   '<th>Main reason</th></tr>')
-        for s in worst:
-            reason = s.error or (s.gates[0] if s.gates else
-                                 (s.top_fixes[0].detail or s.top_fixes[0].title
-                                  if s.top_fixes else 'no check failed'))
-            out.append('<tr><td class="clip">%s</td><td class="n">%.1f</td><td>%s</td>'
-                       '<td class="clip">%s</td></tr>'
+                   '<th>Remarks: what is wrong</th></tr>')
+        for s in shown:
+            out.append('<tr><td class="wrap top">%s</td><td class="n top">%.1f</td>'
+                       '<td class="top">%s</td><td class="wrap">%s</td></tr>'
                        % (html.escape(s.filename), s.score, _pill(s.rating),
-                          html.escape(str(reason))))
-        out.append('</table></section>')
+                          html.escape(s.remarks)))
+        out.append('</table>')
+        if len(need) > len(shown):
+            out.append('<div style="color:#888;font-size:10.5px;margin-top:3px">%d more files '
+                       'below Accept are listed in summary.csv.</div>' % (len(need) - len(shown)))
+        out.append('</section>')
+
+    out.append('<section><h2>Gates: hard rules applied on top of the score</h2>'
+               '<table><colgroup><col style="width:44px"><col style="width:36%">'
+               '<col style="width:110px"><col></colgroup>'
+               '<tr><th>Gate</th><th>What triggers it</th><th>Effect</th><th>In plain words</th></tr>')
+    for gate, trigger, effect, plain in gate_reference(cfg):
+        out.append('<tr><td class="gate top">%s</td><td class="wrap">%s</td>'
+                   '<td class="wrap">%s</td><td class="wrap">%s</td></tr>'
+                   % (gate, html.escape(trigger), html.escape(effect), html.escape(plain)))
+    out.append('</table><div style="color:#888;font-size:10.5px;margin-top:3px">'
+               'A gate sets the score to 0 or caps it, whatever the weighted score says. '
+               'The lowest cap that applies wins.</div></section>')
 
     out.append('<div class="foot">Folder: %s &middot; template: %s &middot; config: %s<br>'
                'Bands: Accept %g+, Minor fixes %g to %g, Resubmit %g to %g, Reject below %g. '

@@ -673,5 +673,57 @@ class TestCalibration(unittest.TestCase):
         self.assertLess(per_file, 1.8, 'a 100-file run must finish in about three minutes')
 
 
+class TestRemarks(unittest.TestCase):
+    """Plain-language remarks and the gate reference."""
+
+    cfg = _CFG
+
+    def _score(self, name):
+        return score(name)
+
+    def test_clean_file_has_no_issues(self):
+        self.assertEqual(self._score('clean.xlsx').remarks, 'No issues found.')
+
+    def test_missing_columns_are_named(self):
+        fs = self._score('s3_missing_mandatory.xlsx')
+        self.assertTrue(fs.missing_columns)
+        self.assertIn('mandatory column', fs.remarks)
+        self.assertIn(fs.missing_columns[0].replace('_', ' '), fs.remarks)
+
+    def test_renamed_columns_show_both_names(self):
+        fs = self._score('s4_renamed.xlsx')
+        self.assertTrue(fs.renamed_columns)
+        found, expected = fs.renamed_columns[0]
+        self.assertIn('should read', fs.remarks)
+        self.assertIn(expected.replace('_', ' '), fs.remarks)
+
+    def test_offset_header_is_reported(self):
+        self.assertIn('instead of A1', self._score('s1_offset_c4.xlsx').remarks)
+
+    def test_wrong_version_and_unreadable(self):
+        self.assertIn('Wrong template version', self._score('g4_v6_template.xlsx').remarks)
+        self.assertIn('Could not be opened', self._score('g1_corrupt.xlsx').remarks)
+
+    def test_gate_reference_covers_all_gates(self):
+        from tpt_score.remarks import gate_reference
+        rows = gate_reference(self.cfg)
+        self.assertEqual([r[0] for r in rows], ['G1', 'G2', 'G3', 'G4', 'G5', 'G6'])
+        self.assertIn('S3', rows[5][1])
+
+    def test_reports_carry_remarks_and_gates(self):
+        import csv, tempfile
+        from tpt_score.reporters.console import write_csv
+        from tpt_score.reporters.html import write_html
+        scores = [self._score('clean.xlsx'), self._score('g4_v6_template.xlsx')]
+        with tempfile.TemporaryDirectory() as d:
+            write_csv(os.path.join(d, 's.csv'), scores)
+            rows = list(csv.DictReader(open(os.path.join(d, 's.csv'), encoding='utf-8-sig')))
+            self.assertIn('remarks', rows[0])
+            write_html(os.path.join(d, 'r.html'), scores, self.cfg, {})
+            page = open(os.path.join(d, 'r.html'), encoding='utf-8').read()
+            self.assertIn('Gates: hard rules', page)
+            self.assertIn('Wrong template version', page)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

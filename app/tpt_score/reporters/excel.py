@@ -61,6 +61,8 @@ def write_workbook(path: str, scores: List[FileScore], cfg, run_info: dict):
 
     _run_summary(wb.active, scores, cfg, run_info)
     used.add(wb.active.title.lower())
+    _gate_reference(wb.create_sheet('Gate reference'), cfg)
+    used.add('gate reference')
     _dimension_scores(wb.create_sheet('Dimension scores'), scores)
     used.add('dimension scores')
     _check_matrix(wb.create_sheet('Check matrix'), scores)
@@ -120,13 +122,14 @@ def _run_summary(ws, scores, cfg, run_info):
     start = r
     _header(ws, r, ['File', 'Score', 'Rating', 'Version', 'Positions', 'Columns mapped',
                     'Structure', 'Completeness', 'Validity', 'Consistency',
-                    'Gates applied', 'Could not be read'],
-            [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 44, 40])
+                    'Gates applied', 'Could not be read', 'Remarks'],
+            [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 44, 40, 90])
     ws.freeze_panes = ws.cell(start + 1, 1)
     r += 1
     for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
         for i, v in enumerate(s.as_summary_row(), start=1):
             ws.cell(r, i, v)
+        ws.cell(r, 13).alignment = Alignment(wrap_text=True, vertical='top')
         ws.cell(r, 3).fill = RATING_FILL.get(s.rating, STATUS_FILL['Not evaluated'])
         ws.cell(r, 2).number_format = '0.0'
         r += 1
@@ -135,7 +138,23 @@ def _run_summary(ws, scores, cfg, run_info):
                                       ColorScaleRule(start_type='num', start_value=0, start_color='F8696B',
                                                      mid_type='num', mid_value=80, mid_color='FFEB84',
                                                      end_type='num', end_value=100, end_color='63BE7B'))
-    ws.auto_filter.ref = 'A%d:L%d' % (start, max(start, r - 1))
+    ws.auto_filter.ref = 'A%d:M%d' % (start, max(start, r - 1))
+
+
+def _gate_reference(ws, cfg):
+    from ..remarks import gate_reference
+    ws['A1'] = 'Gates: hard rules applied on top of the weighted score'
+    ws['A1'].font = TITLE_FONT
+    ws['A2'] = ('A gate either sets the score to 0 or caps it, whatever the weighted score says. '
+                'The lowest cap that applies wins.')
+    _header(ws, 4, ['Gate', 'What triggers it', 'Effect', 'In plain words'], [8, 70, 16, 80])
+    r = 5
+    for row in gate_reference(cfg):
+        for i, v in enumerate(row, start=1):
+            c = ws.cell(r, i, v)
+            c.alignment = Alignment(wrap_text=True, vertical='top')
+        ws.row_dimensions[r].height = 34
+        r += 1
 
 
 def _dimension_scores(ws, scores):
