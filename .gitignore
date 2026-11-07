@@ -10,3 +10,6 @@ __pycache__/
 ~$*
 .~lock*
 Claude outputs/
+# Fund reference workbooks (GP and fund names)
+*fund_reference*.xlsx
+*fund_reference*.xlsm

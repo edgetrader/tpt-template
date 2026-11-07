@@ -68,7 +68,7 @@ python tpt_score.py --in ../data --fund-ref ../reference/funds.xlsx
 
 `--fund-ref` (`-f`) takes a workbook with a **Fund Name** tab holding a table with
 **GP Name** and **Fund Name** columns (title rows above the table are fine; other columns are
-ignored). `fund_reference.example.xlsx` shows the layout. The fund name in each TPT (field 3,
+ignored). Name the file `fund_reference*.xlsx` and git ignores it, as GP and fund names stay out of the repository. The fund name in each TPT (field 3,
 else field 1) is matched to that table:
 
 | Result | Meaning | Highlight |
