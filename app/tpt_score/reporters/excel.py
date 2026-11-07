@@ -119,12 +119,23 @@ def _run_summary(ws, scores, cfg, run_info):
         r += 1
 
     r += 1
+    ws.cell(r, 1, 'Gate codes (shown in the "Gates applied" column)').font = BOLD
+    r += 1
+    from ..remarks import gate_reference
+    for gate, trigger, effect, plain in gate_reference(cfg):
+        ws.cell(r, 1, gate).font = BOLD
+        ws.cell(r, 2, effect)
+        ws.cell(r, 4, trigger + ' ' + plain)
+        r += 1
+    ws.cell(r, 1, 'A gate sets the score to 0 or caps it, whatever the weighted score says. '
+                  'The lowest cap that applies wins.').font = SUB_FONT
+    r += 2
     start = r
     _header(ws, r, ['File', 'Score', 'Rating', 'Version', 'Positions', 'Columns mapped',
                     'Structure', 'Completeness', 'Validity', 'Consistency',
                     'Gates applied', 'Could not be read', 'Remarks'],
             [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 44, 40, 90])
-    ws.freeze_panes = ws.cell(start + 1, 1)
+    ws.freeze_panes = None
     r += 1
     for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
         for i, v in enumerate(s.as_summary_row(), start=1):
@@ -139,6 +150,14 @@ def _run_summary(ws, scores, cfg, run_info):
                                                      mid_type='num', mid_value=80, mid_color='FFEB84',
                                                      end_type='num', end_value=100, end_color='63BE7B'))
     ws.auto_filter.ref = 'A%d:M%d' % (start, max(start, r - 1))
+
+
+def write_summary_xlsx(path: str, scores: List[FileScore], cfg, run_info: dict):
+    """A standalone summary workbook: one sheet, with the gate codes explained."""
+    wb = openpyxl.Workbook()
+    _run_summary(wb.active, scores, cfg, run_info)
+    wb.save(path)
+    return path
 
 
 def _gate_reference(ws, cfg):

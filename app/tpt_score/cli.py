@@ -12,7 +12,7 @@ from typing import List
 from . import __version__
 from .config import Config, load_config, validate
 from .loader import READABLE_EXT
-from .reporters import recap, write_csv, write_html, write_workbook
+from .reporters import recap, write_csv, write_html, write_summary_xlsx, write_workbook
 from .rules import load_fieldset
 from .scorer import FileScore, score_file
 
@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help='also score files in subfolders')
     p.add_argument('--pattern', default='*', metavar='GLOB',
                    help='only files matching this pattern (default: every Excel file)')
+    p.add_argument('--csv', action='store_true', help='also write summary.csv')
     p.add_argument('--no-excel', action='store_true', help='skip the Excel workbook')
     p.add_argument('--no-html', action='store_true', help='skip the HTML summary')
     p.add_argument('--no-timestamp', action='store_true',
@@ -153,7 +154,9 @@ def run(args=None) -> int:
         'seconds': round(time.time() - t0, 1),
     }
 
-    outputs = {'csv': write_csv(os.path.join(outdir, 'summary.csv'), scores)}
+    outputs = {'summary': write_summary_xlsx(os.path.join(outdir, 'summary.xlsx'), scores, cfg, run_info)}
+    if opts.csv:
+        outputs['csv'] = write_csv(os.path.join(outdir, 'summary.csv'), scores)
     if not opts.no_excel and cfg.data.get('reports', {}).get('excel', True):
         outputs['excel'] = write_workbook(os.path.join(outdir, 'TPT_scorecards.xlsx'),
                                           scores, cfg, run_info)

@@ -153,7 +153,7 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
         out.append('</table>')
         if len(need) > len(shown):
             out.append('<div style="color:#888;font-size:10.5px;margin-top:3px">%d more files '
-                       'below Accept are listed in summary.csv.</div>' % (len(need) - len(shown)))
+                       'below Accept are listed in summary.xlsx.</div>' % (len(need) - len(shown)))
         out.append('</section>')
 
     out.append('<section><h2>Gates: hard rules applied on top of the score</h2>'

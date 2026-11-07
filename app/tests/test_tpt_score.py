@@ -573,9 +573,9 @@ class TestEndToEndRun(unittest.TestCase):
 
     def test_cli_produces_every_report(self):
         rc = cli.run(['--in', DATA, '--out', self.out, '--template', TEMPLATE,
-                      '--no-timestamp', '--quiet'])
+                      '--no-timestamp', '--quiet', '--csv'])
         self.assertIn(rc, (0, 1))
-        for name in ('summary.csv', 'TPT_scorecards.xlsx', 'run_summary.html'):
+        for name in ('summary.xlsx', 'summary.csv', 'TPT_scorecards.xlsx', 'run_summary.html'):
             path = os.path.join(self.out, name)
             self.assertTrue(os.path.isfile(path), '%s was not written' % name)
             self.assertGreater(os.path.getsize(path), 400, '%s looks empty' % name)
@@ -583,12 +583,24 @@ class TestEndToEndRun(unittest.TestCase):
     def test_summary_csv_has_a_row_per_file(self):
         import csv
         cli.run(['--in', DATA, '--out', self.out, '--template', TEMPLATE,
-                 '--no-timestamp', '--quiet'])
+                 '--no-timestamp', '--quiet', '--csv'])
         with open(os.path.join(self.out, 'summary.csv'), encoding='utf-8-sig') as fh:
             rows = list(csv.DictReader(fh))
         n_files = len([f for f in os.listdir(DATA) if f.endswith('.xlsx')])
         self.assertEqual(len(rows), n_files)
         self.assertTrue(all(r['rating'] for r in rows))
+
+    def test_summary_workbook_has_remarks_and_gate_codes(self):
+        import openpyxl
+        cli.run(['--in', DATA, '--out', self.out, '--template', TEMPLATE,
+                 '--no-timestamp', '--quiet'])
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'summary.csv')))
+        wb = openpyxl.load_workbook(os.path.join(self.out, 'summary.xlsx'))
+        self.assertEqual(len(wb.sheetnames), 1)
+        cells = [str(c.value) for row in wb.active.iter_rows() for c in row if c.value is not None]
+        for gate in ('G1', 'G2', 'G3', 'G4', 'G5', 'G6'):
+            self.assertIn(gate, cells)
+        self.assertIn('Remarks', cells)
 
     def test_workbook_has_the_expected_sheets(self):
         import openpyxl

@@ -16,7 +16,8 @@ it, in a timestamped folder holding:
 | --- | --- |
 | `TPT_scorecards.xlsx` | Run summary, gate reference, dimension scores, check matrix, issue log, feedback, and one scorecard sheet per file |
 | `run_summary.html` | One-page summary for management, with a gate reference. Print it to PDF |
-| `summary.csv` | The summary table, for loading elsewhere |
+| `summary.xlsx` | One sheet: the summary table with a Remarks column, and the gate codes explained above it |
+| `summary.csv` | Same table, only when you pass `--csv` |
 
 Every summary table has a **Remarks** column that says in plain words what is wrong with the file: which mandatory columns are missing, which column names differ from the template (and what they should read), repeated or extra columns, a table that does not start at A1, and the biggest content problems.
 
