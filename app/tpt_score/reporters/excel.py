@@ -147,45 +147,59 @@ def _run_summary(ws, scores, cfg, run_info):
                   'The lowest cap that applies wins.').font = SUB_FONT
     r += 2
     start = r
-    _header(ws, r, ['File', 'Score', 'Rating', 'Version', 'Positions', 'Columns mapped',
-                    'Structure', 'Completeness', 'Validity', 'Consistency',
-                    'Gates applied', 'Could not be read', 'Tab found in', 'Missing columns',
-                    'Extra columns', 'Renamed columns (found -> template)',
-                    'Mandatory columns with blanks', 'Wrong data type', 'Date formats (date columns)',
-                    'Remarks'],
-            [46, 8, 13, 9, 10, 14, 11, 13, 10, 12, 34, 20, 14, 38, 24, 40, 40, 50, 50, 54])
+    cols = [('File', 46), ('GP name', 26), ('Fund name in file', 34), ('Fund reference match', 30),
+            ('Score', 8), ('Rating', 13), ('Version', 9), ('Positions', 10), ('Columns mapped', 14),
+            ('Structure', 11), ('Completeness', 13), ('Validity', 10), ('Consistency', 12),
+            ('Gates applied', 34), ('Could not be read', 20), ('Tab found in', 14),
+            ('Missing columns', 38), ('Extra columns', 24), ('Renamed columns (found -> template)', 40),
+            ('Mandatory columns with blanks', 40), ('Wrong data type', 50),
+            ('Date formats (date columns)', 50), ('Remarks', 54)]
+    _header(ws, r, [c for c, _ in cols], [w for _, w in cols])
+    at = {name: i for i, (name, _) in enumerate(cols, start=1)}
     ws.freeze_panes = None
     r += 1
     for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
         find = column_findings(s)
-        row = s.as_summary_row()[:12] + [s.sheet] + [bullets(find[k], 15 if k == 'dates' else 12)
+        row = s.as_summary_row()[:16] + [s.sheet] + [bullets(find[k], 15 if k == 'dates' else 12)
                                                        for k in FINDING_KEYS] + [s.remarks]
         for i, v in enumerate(row, start=1):
             c = ws.cell(r, i, v)
-            if i >= 11:
+            if i >= at['Gates applied'] or i in (at['GP name'], at['Fund name in file'],
+                                                  at['Fund reference match']):
                 c.alignment = Alignment(wrap_text=True, vertical='top')
-        ws.cell(r, 13).font = TAB_FONT
+        ws.cell(r, at['Tab found in']).font = TAB_FONT
         if s.sheet:
-            ws.cell(r, 13).fill = TAB_FILL
-        for col, key in ((14, 'missing'), (15, 'extra'), (16, 'renamed'), (17, 'blanks'), (18, 'types')):
+            ws.cell(r, at['Tab found in']).fill = TAB_FILL
+        if s.gp_name:
+            ws.cell(r, at['GP name']).font = BOLD
+        if s.fund_ref_status:
+            fill = {'exact': 'dates_ok', 'close': 'renamed'}.get(s.fund_ref_status, 'template')
+            mc = ws.cell(r, at['Fund reference match'])
+            mc.fill = FINDING_FILL[fill]
+            if fill == 'template':
+                mc.font = Font(bold=True, color='9C0006')
+        for name, key in (('Missing columns', 'missing'), ('Extra columns', 'extra'),
+                          ('Renamed columns (found -> template)', 'renamed'),
+                          ('Mandatory columns with blanks', 'blanks'), ('Wrong data type', 'types')):
             if find[key]:
-                ws.cell(r, col).fill = FINDING_FILL[key]
+                ws.cell(r, at[name]).fill = FINDING_FILL[key]
         if find['dates']:
-            ws.cell(r, 19).fill = FINDING_FILL['dates_ok' if dates_standard(s) else 'dates']
+            ws.cell(r, at['Date formats (date columns)']).fill = FINDING_FILL[
+                'dates_ok' if dates_standard(s) else 'dates']
         if template_problems(s):
-            ws.cell(r, 20).fill = FINDING_FILL['template']
-            ws.cell(r, 20).font = Font(bold=True, color='9C0006')
+            ws.cell(r, at['Remarks']).fill = FINDING_FILL['template']
+            ws.cell(r, at['Remarks']).font = Font(bold=True, color='9C0006')
         most = max([len(find[k]) for k in find] + [1])
         ws.row_dimensions[r].height = min(15 * min(most, 13) + 3, 210)
-        ws.cell(r, 3).fill = RATING_FILL.get(s.rating, STATUS_FILL['Not evaluated'])
-        ws.cell(r, 2).number_format = '0.0'
+        ws.cell(r, at['Rating']).fill = RATING_FILL.get(s.rating, STATUS_FILL['Not evaluated'])
+        ws.cell(r, at['Score']).number_format = '0.0'
         r += 1
     if r > start + 1:
-        ws.conditional_formatting.add('B%d:B%d' % (start + 1, r - 1),
+        ws.conditional_formatting.add('E%d:E%d' % (start + 1, r - 1),
                                       ColorScaleRule(start_type='num', start_value=0, start_color='F8696B',
                                                      mid_type='num', mid_value=80, mid_color='FFEB84',
                                                      end_type='num', end_value=100, end_color='63BE7B'))
-    ws.auto_filter.ref = 'A%d:T%d' % (start, max(start, r - 1))
+    ws.auto_filter.ref = 'A%d:W%d' % (start, max(start, r - 1))
 
 
 def _usable_files_sheet(ws, scores):
@@ -194,14 +208,15 @@ def _usable_files_sheet(ws, scores):
     files = usable_files(scores)
     ws['A1'] = 'Files rated Accept or Minor fixes (%d of %d)' % (len(files), len(scores))
     ws['A1'].font = TITLE_FONT
-    _header(ws, 3, ['Rating', 'Score', 'Full path'], [14, 8, 120])
+    _header(ws, 3, ['Rating', 'Score', 'GP name', 'Full path'], [14, 8, 28, 120])
     r = 4
     for s in files:
         ws.cell(r, 1, s.rating).fill = RATING_FILL[s.rating]
         ws.cell(r, 2, round(s.score, 1)).number_format = '0.0'
-        ws.cell(r, 3, os.path.abspath(s.path))
+        ws.cell(r, 3, s.gp_name)
+        ws.cell(r, 4, os.path.abspath(s.path))
         r += 1
-    ws.auto_filter.ref = 'A3:C%d' % max(3, r - 1)
+    ws.auto_filter.ref = 'A3:D%d' % max(3, r - 1)
 
 
 def _column_findings_sheet(ws, scores):

@@ -114,6 +114,10 @@ def template_problems(fs) -> List[str]:
     out = []
     if fs.version != 'V7':
         out.append('DIFFERENT TEMPLATE: %s, not V7' % fs.version)
+    if fs.fund_ref_status in ('not found', 'no name'):
+        out.append('FUND NOT IN FUND REFERENCE: %s' % (fs.fund_name or fs.fund_id or 'no fund name in the file'))
+    elif fs.fund_ref_status == 'ambiguous':
+        out.append('FUND MATCHES MORE THAN ONE REFERENCE FUND (%s)' % fs.fund_ref_label.split(': ', 1)[-1])
     if fs.extra_tables:
         where = '; '.join(fs.extra_tables[:3])
         out.append('MORE THAN ONE TPT TABLE (%d found, also at %s)' % (1 + len(fs.extra_tables), where))

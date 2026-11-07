@@ -866,5 +866,92 @@ class TestManagementSummary(unittest.TestCase):
         self.assertEqual(main_problem(score('g1_corrupt.xlsx')), 'unusable')
 
 
+class TestFundReference(unittest.TestCase):
+    """GP lookup through the fund reference workbook."""
+
+    def setUp(self):
+        import openpyxl
+        self.dir = tempfile.mkdtemp(prefix='tpt_ref_')
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.ref = os.path.join(self.dir, 'funds.xlsx')
+        wb = openpyxl.Workbook()
+        wb.active.title = 'Cover'
+        ws = wb.create_sheet('Fund Name')
+        ws['A1'] = 'Fund list'
+        rows = [('GP Name', 'Fund Name'),
+                ('Alpha Partners', 'Alpha Private Equity Fund II, L.P.'),
+                ('Alpha Partners', 'Alpha Private Equity Fund III'),
+                ('Beta Capital', 'Beta Senior Infra Debt Fund'),
+                ('Gamma GP', 'Gamma Pacific Secondary Opportunities Fund')]
+        for i, r in enumerate(rows, start=3):
+            ws.cell(i, 1, r[0])
+            ws.cell(i, 2, r[1])
+        wb.save(self.ref)
+
+    def _ref(self):
+        from tpt_score.fundref import load_fund_reference
+        return load_fund_reference(self.ref)
+
+    def test_reads_the_fund_name_tab_below_a_title(self):
+        self.assertEqual(len(self._ref()), 4)
+
+    def test_legal_form_and_abbreviations_are_ignored(self):
+        m = self._ref().match('Alpha PE Fund II LP')
+        self.assertEqual((m.status, m.gp), ('exact', 'Alpha Partners'))
+        m = self._ref().match('Beta Senior Infrastructure Debt Fund')
+        self.assertEqual((m.status, m.gp), ('exact', 'Beta Capital'))
+
+    def test_similar_name_is_a_close_match(self):
+        m = self._ref().match('Gamma Pacific Secondaries Opportunities Fund')
+        self.assertEqual((m.status, m.gp), ('close', 'Gamma GP'))
+        self.assertIn('Close match', m.label)
+
+    def test_fund_number_must_agree(self):
+        self.assertEqual(self._ref().match('Alpha Private Equity Fund III').ref_fund,
+                         'Alpha Private Equity Fund III')
+        self.assertEqual(self._ref().match('Alpha Private Equity Fund IV').status, 'not found')
+
+    def test_unknown_fund_is_not_found(self):
+        m = self._ref().match('Delta Global Macro Fund')
+        self.assertEqual(m.status, 'not found')
+        self.assertEqual(m.label, 'NOT IN FUND REFERENCE')
+
+    def test_missing_tab_is_a_clear_error(self):
+        import openpyxl
+        from tpt_score.fundref import FundReferenceError, load_fund_reference
+        bad = os.path.join(self.dir, 'bad.xlsx')
+        openpyxl.Workbook().save(bad)
+        with self.assertRaises(FundReferenceError):
+            load_fund_reference(bad)
+        rc = cli.run(['--in', DATA, '--out', self.dir, '--template', TEMPLATE, '--quiet',
+                      '--fund-ref', bad])
+        self.assertEqual(rc, 2)
+
+    def test_run_flags_funds_not_in_the_reference(self):
+        import openpyxl
+        out = os.path.join(self.dir, 'out')
+        cli.run(['--in', DATA, '--out', out, '--template', TEMPLATE, '--quiet', '--no-timestamp',
+                 '--fund-ref', self.ref])
+        wb = openpyxl.load_workbook(os.path.join(out, 'summary.xlsx'))
+        cells = [str(c.value) for row in wb['Run summary'].iter_rows() for c in row if c.value]
+        self.assertIn('GP name', cells)
+        self.assertIn('NOT IN FUND REFERENCE', cells)
+        self.assertTrue(any(c.startswith('FUND NOT IN FUND REFERENCE') for c in cells))
+        page = open(os.path.join(out, 'management_summary.html'), encoding='utf-8').read()
+        self.assertIn('Funds not found in the fund reference', page)
+        self.assertIn('By GP, weakest first', page)
+
+    def test_reference_inside_the_input_folder_is_not_scored(self):
+        folder = os.path.join(self.dir, 'in')
+        os.makedirs(folder)
+        shutil.copy(os.path.join(DATA, 'clean.xlsx'), folder)
+        shutil.copy(self.ref, folder)
+        out = os.path.join(self.dir, 'out2')
+        cli.run(['--in', folder, '--out', out, '--template', TEMPLATE, '--quiet', '--no-timestamp',
+                 '--fund-ref', os.path.join(folder, 'funds.xlsx')])
+        with open(os.path.join(out, 'run_stats.json'), encoding='utf-8') as fh:
+            self.assertEqual(json.load(fh)['kpis']['files'], 1)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

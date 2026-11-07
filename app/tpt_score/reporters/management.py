@@ -105,6 +105,8 @@ def fund_label(s: FileScore) -> str:
 
 
 def gp_of(s: FileScore, gp_map: List[Tuple[str, str]]) -> str:
+    if s.gp_name:                       # from the fund reference workbook
+        return s.gp_name
     keys = [k.lower() for k in (s.fund_id or '', s.fund_name or '', s.filename) if k]
     for pattern, gp in gp_map:
         wild = any(ch in pattern for ch in '*?')
@@ -292,7 +294,18 @@ def write_management(path: str, scores: List[FileScore], cfg, run_info: dict,
            '<h1>GP TPT submissions: management summary</h1>',
            '<div class="sub">Run of %s &middot; %d files &middot; checked against FinDatEx TPT V7</div>'
            % (html.escape(str(run_info.get('started', ''))), k['files'])]
-    out.append('<p class="headline">%s</p>' % headline(k, theme_files, theme_blocking, prev))
+    line = headline(k, theme_files, theme_blocking, prev)
+    if any(s.fund_ref_status for s in scores):
+        lost = {(s.fund_name or s.fund_id or '') for s in scores
+                if s.fund_ref_status in ('not found', 'ambiguous', 'no name')}
+        nfiles = sum(1 for s in scores if s.fund_ref_status in ('not found', 'ambiguous', 'no name'))
+        if lost:
+            line += (' <span class="down">%d fund name%s (%d file%s) could not be matched to a GP '
+                     'in the fund reference.</span>' % (len(lost), '' if len(lost) == 1 else 's',
+                                                       nfiles, '' if nfiles == 1 else 's'))
+        else:
+            line += ' Every fund was matched to its GP.'
+    out.append('<p class="headline">%s</p>' % line)
 
     # ---- KPI tiles ----------------------------------------------------------
     out.append('<div class="tiles">')
@@ -330,11 +343,13 @@ def write_management(path: str, scores: List[FileScore], cfg, run_info: dict,
     out.append('</div><div>')
 
     # funds / GPs
-    use_gp = any(gp_of(s, gp_map) for s in scores) if gp_map else False
+    has_ref = any(s.fund_ref_status for s in scores)
+    use_gp = has_ref or (any(gp_of(s, gp_map) for s in scores) if gp_map else False)
     group_name = 'GP' if use_gp else 'Fund'
     groups: Dict[str, List[FileScore]] = collections.defaultdict(list)
     for s in scores:
-        key = (gp_of(s, gp_map) or '(GP not mapped)') if use_gp else fund_label(s)
+        key = (gp_of(s, gp_map) or '(GP not identified)') \
+            if use_gp else fund_label(s)
         groups[key].append(s)
     rank = {'Reject': 0, 'Resubmit': 1, 'Minor fixes': 2, 'Accept': 3}
     rows = []
@@ -357,9 +372,42 @@ def write_management(path: str, scores: List[FileScore], cfg, run_info: dict,
         out.append('<div class="muted" style="margin-top:4px">%d more %ss, all listed in summary.xlsx.</div>'
                    % (len(rows) - 14, 'GP' if use_gp else 'fund'))
     if not use_gp:
-        out.append('<div class="muted" style="margin-top:4px">Grouped by fund name. Add a %s '
-                   '(pattern, GP name) to group by GP.</div>' % GP_MAP_NAME)
+        out.append('<div class="muted" style="margin-top:4px">Grouped by fund name. Pass a fund '
+                   'reference (--fund-ref) to group by GP.</div>')
     out.append('</section></div></div>')
+
+    # ---- funds the reference does not know ---------------------------------
+    if has_ref:
+        unknown = collections.OrderedDict()
+        for s in sorted(scores, key=lambda x: fund_label(x)):
+            if s.fund_ref_status in ('not found', 'ambiguous', 'no name'):
+                name = (s.fund_name or s.fund_id or '(no fund name in the file)').strip()
+                unknown.setdefault(name, []).append(s)
+        close = sorted({(s.fund_name or s.fund_id, s.ref_fund, s.gp_name) for s in scores
+                        if s.fund_ref_status == 'close'})
+        out.append('<section><h2>Funds not found in the fund reference (%d)</h2>' % len(unknown))
+        if unknown:
+            out.append('<table><colgroup><col style="width:38%"><col style="width:60px"><col></colgroup>'
+                       '<tr><th>Fund name as written by the GP</th><th class="n">Files</th>'
+                       '<th>Why</th></tr>')
+            for name, items in unknown.items():
+                m = items[0]
+                why = ('matches more than one fund: ' + m.fund_ref_label.split(': ', 1)[-1]
+                       if m.fund_ref_status == 'ambiguous' else
+                       'the file holds no fund name' if m.fund_ref_status == 'no name' else
+                       'no fund in the reference is close enough')
+                out.append('<tr><td><b class="down">%s</b></td><td class="n">%d</td><td>%s</td></tr>'
+                           % (html.escape(name), len(items), html.escape(why)))
+            out.append('</table>')
+        else:
+            out.append('<p>Every fund was found.</p>')
+        if close:
+            out.append('<div class="muted" style="margin-top:4px">%d fund name%s matched only '
+                       'approximately; please confirm: %s</div>'
+                       % (len(close), '' if len(close) == 1 else 's',
+                          html.escape('; '.join('"%s" = %s (%s)' % c for c in close[:6]))
+                          + (' and %d more' % (len(close) - 6) if len(close) > 6 else '')))
+        out.append('</section>')
 
     # ---- escalation ---------------------------------------------------------
     esc = sorted((s for s in scores if s.rating in BLOCKING), key=lambda s: (s.score, fund_label(s)))
@@ -374,7 +422,7 @@ def write_management(path: str, scores: List[FileScore], cfg, run_info: dict,
             t = main_problem(s)
             who = fund_label(s)
             if use_gp:
-                who = '%s<div class="muted">%s</div>' % (html.escape(gp_of(s, gp_map) or '(GP not mapped)'),
+                who = '%s<div class="muted">%s</div>' % (html.escape(gp_of(s, gp_map) or '(GP not identified)'),
                                                          html.escape(who))
             else:
                 who = html.escape(who)

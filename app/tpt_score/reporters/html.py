@@ -160,6 +160,12 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
         for s in shown:
             find = column_findings(s)
             cell = []
+            if s.fund_ref_status:
+                bad = s.fund_ref_status not in ('exact', 'close')
+                cell.append('<div class="f%s">GP: <b>%s</b> &middot; fund: %s</div>'
+                            % (' bad' if bad else '', html.escape(s.gp_name or 'not identified'),
+                               html.escape(s.fund_ref_label if s.fund_ref_status != 'exact'
+                                           else (s.ref_fund or ''))))
             if s.sheet:
                 cell.append('<div class="f">Tab: <span class="tab">%s</span></div>' % html.escape(s.sheet))
             if s.remarks and s.remarks != 'No issues found.':

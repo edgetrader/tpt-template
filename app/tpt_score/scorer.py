@@ -78,6 +78,10 @@ class FileScore:
     missing_optional: List[str] = dc_field(default_factory=list)      # non-mandatory fields absent
     blank_mandatory: List[Any] = dc_field(default_factory=list)       # (column, empty cells, applicable cells)
     extra_tables: List[str] = dc_field(default_factory=list)          # other TPT tables found
+    gp_name: str = ''                 # from the fund reference
+    fund_ref_status: str = ''         # '' when no fund reference was given
+    fund_ref_label: str = ''
+    ref_fund: str = ''
     type_mismatches: List[Any] = dc_field(default_factory=list)
     date_formats: List[Any] = dc_field(default_factory=list)
 
@@ -96,7 +100,8 @@ class FileScore:
         return sorted(bad, key=lambda c: -c.points_lost)[:5]
 
     def as_summary_row(self) -> List[Any]:
-        return [self.filename, round(self.score, 1), self.rating, self.version, self.positions,
+        return [self.filename, self.gp_name, self.fund_name or self.fund_id, self.fund_ref_label,
+                round(self.score, 1), self.rating, self.version, self.positions,
                 self.mapped_columns,
                 round(self.dimensions['structure'].score, 1) if self.dimensions else '',
                 round(self.dimensions['completeness'].score, 1) if self.dimensions else '',

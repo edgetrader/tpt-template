@@ -60,7 +60,30 @@ The V7 workbook is found automatically when it sits in `templates/` next to
 the submissions folder. Otherwise pass `--template`.
 
 
-### Grouping the management page by GP
+### Fund reference: which GP sent the file
+
+```
+python tpt_score.py --in ../data --fund-ref ../reference/funds.xlsx
+```
+
+`--fund-ref` (`-f`) takes a workbook with a **Fund Name** tab holding a table with
+**GP Name** and **Fund Name** columns (title rows above the table are fine; other columns are
+ignored). `fund_reference.example.xlsx` shows the layout. The fund name in each TPT (field 3,
+else field 1) is matched to that table:
+
+| Result | Meaning | Highlight |
+| --- | --- | --- |
+| Matched | Same name once case, punctuation, legal forms (LP, SCSp, SICAV, ELTIF...) and abbreviations (PE, Infra, RE...) are ignored | Green |
+| Close match | Similar enough (82% or more) to be the same fund; shown with the reference name so a person can confirm | Amber |
+| Ambiguous | Two funds of different GPs match about equally | Red |
+| NOT IN FUND REFERENCE | Nothing close enough, or no fund name in the file | Red, and named in Remarks |
+
+Fund numbering must agree, so "Fund II" never matches "Fund III". The match does not change the
+score; it adds GP name, fund name and match columns to the summary, groups the management page
+by GP and lists the funds that were not found. If the reference sits inside the input folder it
+is not scored as a submission. Without `--fund-ref`, a `gp_map.csv` (below) can still group by GP.
+
+### Grouping by GP without a fund reference
 
 Copy `gp_map.example.csv` to `gp_map.csv`, either in the input folder or in `app/`, or pass
 `--gp-map path.csv`. Each row is `pattern,GP name`; the pattern is matched against the fund ID,
@@ -164,7 +187,7 @@ settings that produced it.
 
 ```
 python tests/make_test_data.py      # build the fixtures (optional; the tests do it)
-python tests/test_tpt_score.py      # 87 tests
+python tests/test_tpt_score.py      # 95 tests
 ```
 
 `tests/data/` holds 33 fixtures: one clean file that scores exactly 100.0, one
@@ -209,6 +232,7 @@ tpt_score/
   scorer.py             weights, floors, gates, bands
   remarks.py            plain-language remarks and the gate reference table
   reporters/management.py  the management page and run_stats.json
+  fundref.py            fund reference: GP lookup by fuzzy fund-name match
   profile.py            per-column data-type mismatches and date formats
   checks/               the 24 checks, one module per dimension
   reporters/            Excel workbook, HTML summary, CSV, console recap

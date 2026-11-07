@@ -44,6 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help='also score files in subfolders')
     p.add_argument('--pattern', default='*', metavar='GLOB',
                    help='only files matching this pattern (default: every Excel file)')
+    p.add_argument('-f', '--fund-ref', default=None, metavar='XLSX',
+                   help='fund reference workbook; its "Fund Name" tab lists GP Name and Fund Name')
     p.add_argument('--gp-map', default=None, help='CSV of pattern,GP name to group funds by GP')
     p.add_argument('--csv', action='store_true', help='also write summary.csv')
     p.add_argument('--no-excel', action='store_true', help='skip the Excel workbook')
@@ -125,6 +127,19 @@ def run(args=None) -> int:
         print('tpt_score %s | rules %s | %d files from %s'
               % (__version__, cfg.rules_version, len(files), opts.input))
 
+    fund_ref = None
+    if opts.fund_ref:
+        from .fundref import FundReferenceError, load_fund_reference
+        try:
+            fund_ref = load_fund_reference(opts.fund_ref)
+        except FundReferenceError as exc:
+            print('error: %s' % exc, file=sys.stderr)
+            return 2
+        ref_abs = os.path.abspath(opts.fund_ref)
+        files = [f for f in files if os.path.abspath(f) != ref_abs]   # never score the reference
+        if not opts.quiet:
+            print('fund reference: %d funds from %s' % (len(fund_ref), opts.fund_ref))
+
     fields = load_fieldset(template)
 
     scores: List[FileScore] = []
@@ -137,6 +152,14 @@ def run(args=None) -> int:
                           rating='Reject', error='%s: %s' % (type(exc).__name__, str(exc)[:160]),
                           gates=['G1: the file could not be processed'],
                           rules_version=cfg.rules_version)
+        if fund_ref is not None:
+            from .fundref import tpt_fund_name
+            m = fund_ref.match(tpt_fund_name(s)) if not s.error else None
+            if m is None:
+                s.fund_ref_label = 'Not checked: the file could not be scored'
+            else:
+                s.fund_ref_status, s.fund_ref_label = m.status, m.label
+                s.gp_name, s.ref_fund = m.gp, m.ref_fund
         scores.append(s)
         if not opts.quiet:
             print('  [%*d/%d] %-52s %5.1f  %s'
@@ -153,6 +176,7 @@ def run(args=None) -> int:
         'template': template,
         'config': cfg.source,
         'seconds': round(time.time() - t0, 1),
+        'fund_reference': os.path.abspath(opts.fund_ref) if opts.fund_ref else '',
     }
 
     outputs = {'summary': write_summary_xlsx(os.path.join(outdir, 'summary.xlsx'), scores, cfg, run_info)}
