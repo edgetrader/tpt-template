@@ -206,17 +206,29 @@ def _usable_files_sheet(ws, scores):
     """Full paths of the files rated Accept or Minor fixes."""
     from .console import usable_files
     files = usable_files(scores)
+    ws.title = 'Accepted files'
     ws['A1'] = 'Files rated Accept or Minor fixes (%d of %d)' % (len(files), len(scores))
     ws['A1'].font = TITLE_FONT
-    _header(ws, 3, ['Rating', 'Score', 'GP name', 'Full path'], [14, 8, 28, 120])
+    _header(ws, 3, ['Rating', 'Score', 'GP name', 'Fund (from file name)', 'File name', 'Full path'],
+            [14, 8, 28, 40, 46, 110])
     r = 4
     for s in files:
         ws.cell(r, 1, s.rating).fill = RATING_FILL[s.rating]
         ws.cell(r, 2, round(s.score, 1)).number_format = '0.0'
         ws.cell(r, 3, s.gp_name)
-        ws.cell(r, 4, os.path.abspath(s.path))
+        ws.cell(r, 4, s.ref_fund)
+        ws.cell(r, 5, s.filename)
+        ws.cell(r, 6, os.path.abspath(s.path))
         r += 1
-    ws.auto_filter.ref = 'A3:D%d' % max(3, r - 1)
+    ws.auto_filter.ref = 'A3:F%d' % max(3, r - 1)
+
+
+def write_accepted_xlsx(path: str, scores: List[FileScore]) -> str:
+    """accepted_files.xlsx: the files rated Accept or Minor fixes, with full paths."""
+    wb = openpyxl.Workbook()
+    _usable_files_sheet(wb.active, scores)
+    wb.save(path)
+    return path
 
 
 def _column_findings_sheet(ws, scores):

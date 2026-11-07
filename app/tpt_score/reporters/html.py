@@ -230,7 +230,7 @@ def write_html(path: str, scores: List[FileScore], cfg, run_info: dict) -> str:
 
     usable = usable_files(scores)
     out.append('<section><h2>Files rated Accept or Minor fixes: %d of %d</h2>' % (len(usable), n))
-    out.append('<details><summary>Show the full path of each file (also in accepted_files.txt '
+    out.append('<details><summary>Show the full path of each file (also in accepted_files.xlsx '
                'and the Accepted files sheet)</summary><div class="paths">%s</div></details></section>'
                % '<br>'.join(html.escape(os.path.abspath(u.path)) for u in usable))
 

@@ -849,8 +849,14 @@ class TestRemarks(unittest.TestCase):
 
     def test_accepted_files_list_has_full_paths(self):
         cli.run(['--in', DATA, '--out', self.out_dir, '--template', TEMPLATE, '--no-timestamp', '--quiet'])
-        with open(os.path.join(self.out_dir, 'accepted_files.txt'), encoding='utf-8') as fh:
-            lines = [l.strip() for l in fh if l.strip()]
+        import openpyxl
+        self.assertFalse(os.path.exists(os.path.join(self.out_dir, 'accepted_files.txt')))
+        ws = openpyxl.load_workbook(os.path.join(self.out_dir, 'accepted_files.xlsx'))['Accepted files']
+        rows = [[c.value for c in r] for r in ws.iter_rows()]
+        head = rows[2]
+        self.assertEqual(head, ['Rating', 'Score', 'GP name', 'Fund (from file name)', 'File name', 'Full path'])
+        lines = [r[5] for r in rows[3:] if r[5]]
+        self.assertTrue(all(r[0] in ('Accept', 'Minor fixes') for r in rows[3:] if r[5]))
         self.assertTrue(lines)
         self.assertTrue(all(os.path.isabs(l) and os.path.isfile(l) for l in lines))
         self.assertIn(os.path.abspath(os.path.join(DATA, 'clean.xlsx')), lines)

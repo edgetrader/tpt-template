@@ -19,7 +19,7 @@ it, in a timestamped folder holding:
 | `TPT_scorecards.xlsx` | Run summary, gate reference, dimension scores, check matrix, issue log, feedback, and one scorecard sheet per file |
 | `run_summary.html` | One-page summary for management, with a gate reference. Print it to PDF |
 | `summary.xlsx` | One sheet: the summary table with a Remarks column, and the gate codes explained above it |
-| `accepted_files.txt` | Full path of every file rated Accept or Minor fixes, one per line (also a sheet in the workbooks and a list in the HTML) |
+| `accepted_files.xlsx` | Every file rated Accept or Minor fixes: rating, score, GP, fund, file name and full path (also a sheet in the workbooks and a list in the HTML) |
 | `summary.csv` | Same table, only when you pass `--csv` |
 
 The summary table lists, per file: the **tab** the template was found in, **missing columns** (mandatory ones flagged), **extra columns** not in V7, **renamed columns** (found -> template name), **mandatory columns with blanks**, **wrong data type** (columns whose cells do not match the expected type, with an example), the **format of every date column**, and a short **remarks** line. A different template or more than one TPT table is shown in capitals and highlighted red. The full lists are on the *Column findings* sheet.
