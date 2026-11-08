@@ -194,6 +194,24 @@ def _cap(text: str) -> str:
     return text[:1].upper() + text[1:] if text else text
 
 
+def key_field_items(fs) -> List[str]:
+    """'17 Instrument name: 3 of 8 positions blank', one per key field."""
+    items = []
+    for name, status, blank, n in fs.key_fields:
+        if status == 'missing':
+            items.append('%s: column missing' % _pretty(name))
+        elif status == 'blank':
+            items.append('%s: %s of %d position%s blank' % (_pretty(name), 'all' if blank == n else blank,
+                                                          n, '' if n == 1 else 's'))
+        else:
+            items.append('%s: filled on all %d position%s' % (_pretty(name), n, '' if n == 1 else 's'))
+    return items
+
+
+def key_fields_ok(fs) -> bool:
+    return all(status == 'ok' for _, status, _, _ in fs.key_fields)
+
+
 def remark_findings(fs) -> dict:
     """The findings that are not column lists, each a list of short items."""
     out = {k: [] for k, _ in REMARK_LABELS}
@@ -261,4 +279,4 @@ def build_remarks(fs) -> str:
         return '\n'.join(lines)
     cols = column_findings(fs)
     problems = [k for k in ('missing', 'extra', 'renamed', 'blanks', 'types') if cols[k]]
-    return '' if problems else 'No issues found.'
+    return '' if problems or not key_fields_ok(fs) else 'No issues found.'

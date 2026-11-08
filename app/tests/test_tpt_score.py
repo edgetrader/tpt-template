@@ -1344,5 +1344,54 @@ class TestConcat(unittest.TestCase):
         self.assertEqual(rc, 2)
 
 
+class TestKeyFields(unittest.TestCase):
+    """17_Instrument_name (and any key field in rules.yaml) is reported on its own."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix='tpt_key_')
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+
+    def _variant(self, name, blank_rows=(), drop=False):
+        import openpyxl
+        wb = openpyxl.load_workbook(os.path.join(DATA, 'clean.xlsx'))
+        ws = wb.active
+        col = next(c.column for c in ws[1] if str(c.value).startswith('17_'))
+        if drop:
+            ws.delete_cols(col)
+        for r in blank_rows:
+            ws.cell(r, col).value = None if r % 2 else 'N/A'
+        path = os.path.join(self.dir, name)
+        wb.save(path)
+        return score_file(path, fields(), _CFG)
+
+    def test_status_of_instrument_name(self):
+        from tpt_score.remarks import key_field_items, key_fields_ok
+        clean = score('clean.xlsx')
+        self.assertTrue(key_fields_ok(clean))
+        self.assertIn('17 Instrument name: filled on all 4 positions', key_field_items(clean))
+        some = self._variant('some.xlsx', blank_rows=(2, 3))
+        self.assertFalse(key_fields_ok(some))
+        self.assertEqual(key_field_items(some), ['17 Instrument name: 2 of 4 positions blank'])
+        none = self._variant('none.xlsx', blank_rows=(2, 3, 4, 5))
+        self.assertEqual(key_field_items(none), ['17 Instrument name: all of 4 positions blank'])
+        gone = self._variant('gone.xlsx', drop=True)
+        self.assertEqual(key_field_items(gone), ['17 Instrument name: column missing'])
+        self.assertNotEqual(some.remarks, 'No issues found.')
+
+    def test_reports_show_the_key_field(self):
+        import openpyxl
+        from tpt_score.reporters.html import finding_lines
+        self._variant('some.xlsx', blank_rows=(2,))
+        out = os.path.join(self.dir, 'out')
+        cli.run(['--in', self.dir, '--out', out, '--template', TEMPLATE, '--quiet', '--no-timestamp'])
+        rows = [[c.value for c in r] for r in openpyxl.load_workbook(
+            os.path.join(out, 'summary.xlsx'))['Run summary'].iter_rows()]
+        head = next(r for r in rows if r[0] == 'File')
+        row = next(r for r in rows if r[0] == 'some.xlsx')
+        self.assertIn('1 of 4 positions blank', row[head.index('Key fields')])
+        self.assertIn('Key fields not filled (1)', finding_lines(score_file(
+            os.path.join(self.dir, 'some.xlsx'), fields(), _CFG)))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

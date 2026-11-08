@@ -62,6 +62,15 @@ The V7 workbook is found automatically when it sits in `templates/` next to
 the submissions folder. Otherwise pass `--template`.
 
 
+### Key fields: instrument name
+
+`17_Instrument_name` is reported on its own in every report: the summary's **Key fields**
+column, the findings in `run_summary.html` and the Column findings sheet. It reads
+"filled on all 8 positions" (green), "3 of 8 positions blank" or "column missing" (red);
+a placeholder such as N/A counts as blank. This is a highlight only and does not change the
+score (missing values are already charged by checks S3 and C1). Add more fields to
+`key_fields` in `rules.yaml` to highlight them the same way.
+
 ### Combining the accepted files: `tpt_concat.py`
 
 After a scoring run, combine every file on its accepted list (Accept and Minor fixes) into

@@ -77,6 +77,10 @@ checks:
   K5: {weight: 10, critical: true}     # no duplicated positions
   K6: {weight: 10, critical: false, stale_days: 100}
 
+# Fields highlighted on their own in every report (missing column, or blank on some
+# positions). Highlight only: the score is unchanged. Field numbers as in the template.
+key_fields: ['17']        # 17_Instrument_name
+
 reports:
   excel: true
   html: true

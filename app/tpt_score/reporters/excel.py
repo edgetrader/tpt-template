@@ -11,7 +11,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter as CL
 
 from ..checks import CHECKS
-from ..remarks import FINDING_LABELS, bullets, column_findings, dates_standard, template_problems
+from ..remarks import (FINDING_LABELS, bullets, column_findings, dates_standard, key_field_items,
+                       key_fields_ok, template_problems)
 from ..scorer import FINDING_KEYS
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
@@ -191,6 +192,7 @@ def _run_summary(ws, scores, cfg, run_info):
             ('Score', 8), ('Rating', 13), ('Version', 9), ('Positions', 10), ('Columns mapped', 14),
             ('Structure', 11), ('Completeness', 13), ('Validity', 10), ('Consistency', 12),
             ('Gates applied', 34), ('Could not be read', 20), ('Tab found in', 14),
+            ('Key fields', 40),
             ('Missing columns', 38), ('Extra columns', 24), ('Renamed columns (found -> template)', 40),
             ('Mandatory columns with blanks', 40), ('Wrong data type', 50),
             ('Date formats (date columns)', 50), ('Remarks', 54)]
@@ -200,7 +202,8 @@ def _run_summary(ws, scores, cfg, run_info):
     r += 1
     for s in sorted(scores, key=lambda x: (-x.score, x.filename)):
         find = column_findings(s)
-        row = s.as_summary_row()[:15] + [s.sheet] + [bullets(find[k], 15 if k == 'dates' else 12)
+        row = s.as_summary_row()[:15] + [s.sheet, bullets(key_field_items(s))] + [
+            bullets(find[k], 15 if k == 'dates' else 12)
                                                        for k in FINDING_KEYS] + [s.remarks]
         for i, v in enumerate(row, start=1):
             c = ws.cell(r, i, v)
@@ -212,6 +215,11 @@ def _run_summary(ws, scores, cfg, run_info):
             ws.cell(r, at['Tab found in']).fill = TAB_FILL
         if s.gp_name:
             ws.cell(r, at['GP name']).font = BOLD
+        if s.key_fields:
+            kc = ws.cell(r, at['Key fields'])
+            kc.fill = FINDING_FILL['dates_ok' if key_fields_ok(s) else 'template']
+            if not key_fields_ok(s):
+                kc.font = Font(bold=True, color='9C0006')
         if s.fund_ref_status:
             fill = {'exact': 'dates_ok', 'close': 'renamed'}.get(s.fund_ref_status, 'template')
             mc = ws.cell(r, at['Fund reference match'])
@@ -239,7 +247,7 @@ def _run_summary(ws, scores, cfg, run_info):
                                       ColorScaleRule(start_type='num', start_value=0, start_color='F8696B',
                                                      mid_type='num', mid_value=80, mid_color='FFEB84',
                                                      end_type='num', end_value=100, end_color='63BE7B'))
-    ws.auto_filter.ref = 'A%d:W%d' % (start, max(start, r - 1))
+    ws.auto_filter.ref = 'A%d:X%d' % (start, max(start, r - 1))
 
 
 def _usable_files_sheet(ws, scores):
@@ -277,6 +285,13 @@ def _column_findings_sheet(ws, scores):
     labels = dict(FINDING_LABELS)
     r = 2
     for s in sorted(scores, key=lambda x: x.filename):
+        for name, status, blank, n in s.key_fields:
+            if status != 'ok':
+                ws.cell(r, 1, s.filename)
+                ws.cell(r, 2, s.sheet)
+                ws.cell(r, 3, 'Key field not filled').fill = FINDING_FILL['template']
+                ws.cell(r, 4, key_field_items(s)[[k[0] for k in s.key_fields].index(name)])
+                r += 1
         for key, items in column_findings(s).items():
             for item in items:
                 ws.cell(r, 1, s.filename)

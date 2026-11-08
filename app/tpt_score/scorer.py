@@ -12,7 +12,7 @@ from .config import Config
 from .loader import UnreadableFile, load_table
 from .mapper import detect_version, map_columns
 from .profile import profile_columns
-from .remarks import FINDING_LABELS, column_findings
+from .remarks import FINDING_LABELS, column_findings, key_field_items
 
 FINDING_KEYS = [k for k, _ in FINDING_LABELS]
 
@@ -78,6 +78,7 @@ class FileScore:
     missing_optional: List[str] = dc_field(default_factory=list)      # non-mandatory fields absent
     blank_mandatory: List[Any] = dc_field(default_factory=list)       # (column, empty cells, applicable cells)
     extra_tables: List[str] = dc_field(default_factory=list)          # other TPT tables found
+    key_fields: List[Any] = dc_field(default_factory=list)            # (name, status, blank, positions)
     gp_name: str = ''                 # from the fund reference
     fund_ref_status: str = ''         # '' when no fund reference was given
     fund_ref_label: str = ''
@@ -108,8 +109,27 @@ class FileScore:
                 round(self.dimensions['validity'].score, 1) if self.dimensions else '',
                 round(self.dimensions['consistency'].score, 1) if self.dimensions else '',
                 '; '.join(self.gates), self.error, self.sheet,
+                ' | '.join(key_field_items(self)),
                 *[' | '.join(column_findings(self)[k]) for k in FINDING_KEYS],
                 self.remarks]
+
+
+def key_field_status(ctx, cfg) -> List[Any]:
+    """For each key field: (name, 'missing' | 'blank' | 'ok', blank cells, positions)."""
+    from .util import is_blank, is_placeholder
+    out = []
+    for tok in [str(t) for t in (cfg.data.get('key_fields') or [])]:
+        f = ctx.fields.get(tok)
+        if f is None:
+            continue
+        n = len(ctx.rows)
+        if not ctx.cmap.has(tok):
+            out.append((f.name, 'missing', n, n))
+            continue
+        blank = sum(1 for row in ctx.rows
+                    if is_blank(ctx.value(row, tok)) or is_placeholder(ctx.value(row, tok)))
+        out.append((f.name, 'blank' if blank else 'ok', blank, n))
+    return out
 
 
 def _column_findings(cmap, fields) -> Dict[str, Any]:
@@ -193,6 +213,7 @@ def score_file(path: str, fields, cfg: Config) -> FileScore:
                 f = fields.get(tok)
                 fs.blank_mandatory.append((f.name if f else tok, empty, total))
         fs.blank_mandatory.sort(key=lambda x: -x[1])
+    fs.key_fields = key_field_status(ctx, cfg)
     prof = profile_columns(ctx)
     fs.type_mismatches = prof['type_mismatches']
     fs.date_formats = prof['date_formats']

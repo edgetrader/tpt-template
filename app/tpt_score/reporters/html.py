@@ -7,7 +7,8 @@ import os
 from typing import List
 
 from ..remarks import (FINDING_LABELS, REMARK_LABELS, column_findings, dates_standard,
-                       gate_reference, remark_findings, check_reference)
+                       gate_reference, remark_findings, check_reference, key_field_items,
+                       key_fields_ok)
 from .console import usable_files
 from ..scorer import DIMENSIONS, DIMENSION_LABEL, FileScore
 
@@ -109,6 +110,14 @@ def finding_lines(s) -> str:
         cls = 'dates_ok' if s.fund_ref_status == 'exact' else (
             'renamed' if s.fund_ref_status == 'close' else 'bad')
         cell.append('<div class="f %s"><b>Fund reference</b> %s</div>' % (cls, html.escape(text)))
+    if s.key_fields:
+        items = key_field_items(s)
+        if key_fields_ok(s):
+            cell.append('<div class="f dates_ok"><b>Key fields (%d)</b> %s</div>'
+                        % (len(items), html.escape('; '.join(items))))
+        else:
+            bad = [i for i, k in zip(items, s.key_fields) if k[1] != 'ok']
+            cell.append(_line('bad', 'Key fields not filled', bad))
     for key in ORDER:
         if key == 'dates':
             items = cols['dates']
@@ -123,7 +132,8 @@ def finding_lines(s) -> str:
         items = cols.get(key) if key in cols else rems.get(key, [])
         if items:
             cell.append(_line(LINE_CLASS[key], labels[key], items))
-    if not any(cols[k] for k in cols if k != 'dates') and not any(rems.values()):
+    if not any(cols[k] for k in cols if k != 'dates') and not any(rems.values()) \
+            and key_fields_ok(s):
         cell.append('<div class="f">No issues found.</div>')
     return ''.join(cell)
 
