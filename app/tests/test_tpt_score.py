@@ -1371,12 +1371,29 @@ class TestKeyFields(unittest.TestCase):
         self.assertIn('17 Instrument name: filled on all 4 positions', key_field_items(clean))
         some = self._variant('some.xlsx', blank_rows=(2, 3))
         self.assertFalse(key_fields_ok(some))
-        self.assertEqual(key_field_items(some), ['17 Instrument name: 2 of 4 positions blank'])
+        self.assertIn('17 Instrument name: 2 of 4 positions blank or null', key_field_items(some))
         none = self._variant('none.xlsx', blank_rows=(2, 3, 4, 5))
-        self.assertEqual(key_field_items(none), ['17 Instrument name: all of 4 positions blank'])
+        self.assertIn('17 Instrument name: all of 4 positions blank or null', key_field_items(none))
         gone = self._variant('gone.xlsx', drop=True)
-        self.assertEqual(key_field_items(gone), ['17 Instrument name: column missing'])
+        self.assertIn('17 Instrument name: column missing', key_field_items(gone))
         self.assertNotEqual(some.remarks, 'No issues found.')
+
+    def test_instrument_code_blank_or_null(self):
+        import openpyxl
+        from tpt_score.remarks import key_field_items, key_fields_ok
+        self.assertIn('14 Identification code of the instrument: filled on all 4 positions',
+                      key_field_items(score('clean.xlsx')))
+        wb = openpyxl.load_workbook(os.path.join(DATA, 'clean.xlsx'))
+        ws = wb.active
+        col = next(c.column for c in ws[1] if str(c.value).startswith('14_'))
+        ws.cell(2, col).value = None
+        ws.cell(3, col).value = 'NULL'
+        path = os.path.join(self.dir, 'code.xlsx')
+        wb.save(path)
+        fs = score_file(path, fields(), _CFG)
+        self.assertFalse(key_fields_ok(fs))
+        self.assertIn('14 Identification code of the instrument: 2 of 4 positions blank or null',
+                      key_field_items(fs))
 
     def test_reports_show_the_key_field(self):
         import openpyxl
@@ -1388,7 +1405,7 @@ class TestKeyFields(unittest.TestCase):
             os.path.join(out, 'summary.xlsx'))['Run summary'].iter_rows()]
         head = next(r for r in rows if r[0] == 'File')
         row = next(r for r in rows if r[0] == 'some.xlsx')
-        self.assertIn('1 of 4 positions blank', row[head.index('Key fields')])
+        self.assertIn('1 of 4 positions blank or null', row[head.index('Key fields')])
         self.assertIn('Key fields not filled (1)', finding_lines(score_file(
             os.path.join(self.dir, 'some.xlsx'), fields(), _CFG)))
 

@@ -127,6 +127,7 @@ def key_field_status(ctx, cfg) -> List[Any]:
         if not ctx.cmap.has(tok):
             out.append((f.name, 'missing', n, n))
             continue
+        # Null counts as blank: empty cells, and placeholders such as NULL, N/A or TBC.
         blank = sum(1 for row in ctx.rows
                     if is_blank(ctx.value(row, tok)) or is_placeholder(ctx.value(row, tok)))
         out.append((f.name, 'blank' if blank else 'ok', blank, n))

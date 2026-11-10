@@ -79,7 +79,7 @@ checks:
 
 # Fields highlighted on their own in every report (missing column, or blank on some
 # positions). Highlight only: the score is unchanged. Field numbers as in the template.
-key_fields: ['17']        # 17_Instrument_name
+key_fields: ['14', '17']  # 14_Identification_code_of_the_instrument, 17_Instrument_name
 
 reports:
   excel: true

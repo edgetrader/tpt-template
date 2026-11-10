@@ -201,7 +201,7 @@ def key_field_items(fs) -> List[str]:
         if status == 'missing':
             items.append('%s: column missing' % _pretty(name))
         elif status == 'blank':
-            items.append('%s: %s of %d position%s blank' % (_pretty(name), 'all' if blank == n else blank,
+            items.append('%s: %s of %d position%s blank or null' % (_pretty(name), 'all' if blank == n else blank,
                                                           n, '' if n == 1 else 's'))
         else:
             items.append('%s: filled on all %d position%s' % (_pretty(name), n, '' if n == 1 else 's'))

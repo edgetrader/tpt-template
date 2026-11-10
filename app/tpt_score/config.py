@@ -18,7 +18,7 @@ DEFAULTS: Dict[str, Any] = {
     'critical_floor': 0.25,
     # Fields reported on their own line in every report: missing column, or how
     # many positions leave them blank. Highlighted only; the score is unchanged.
-    'key_fields': ['17'],
+    'key_fields': ['14', '17'],
     'bands': {'accept': 95, 'minor_fixes': 80, 'resubmit': 50},
     'gates': {
         'min_mapped_columns': 10,
