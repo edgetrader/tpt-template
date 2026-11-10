@@ -22,7 +22,7 @@ Reports land in `output/<input folder>/`, e.g. `output/data/`; the latest run re
 | `app/` | The scoring system: scripts, `rules.yaml`, tests and fixtures. See `app/README.md` |
 | `data/` | TPT files to score. Currently 100 synthetic V7 deliveries with known faults, plus their ground truth. See `data/README.md` |
 | `output/` | Where runs write their reports: one folder per input folder, holding the latest run |
-| `templates/` | The FinDatEx workbooks, V5 to V8. V7 is the one the rules are read from |
+| `templates/` | The FinDatEx workbooks, V5 to V8. V7 is the one the rules are read from; V6 and V8 are read to tell a submission's template version from its column names |
 | `archive/` | Earlier sample sets and the original checker. Not used by the scorer |
 | `CLAUDE.md` | The design: scoring model, the 24 checks, gates, build plan |
 
