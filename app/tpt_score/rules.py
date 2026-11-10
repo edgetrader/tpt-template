@@ -175,7 +175,9 @@ def load_fieldset(template_path: str) -> FieldSet:
             definition=str(cell(COL_DEFINITION) or '').strip(),
             codification=str(cell(COL_CODIFICATION) or '').strip(),
         ))
-    return FieldSet(fields, version_label)
+    fs = FieldSet(fields, version_label)
+    fs.path = template_path                # where the template sits: versions.py looks beside it
+    return fs
 
 
 # --- conditional applicability -------------------------------------------------

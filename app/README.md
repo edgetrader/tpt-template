@@ -190,7 +190,7 @@ all costs at least 0.25, however few rows are involved.
 | G1 | File cannot be opened | Score 0 |
 | G2 | No header found, or fewer than 10 template columns recognised | Score 0 |
 | G3 | No position rows, or the CIC column not recognised | Score 0 |
-| G4 | Template is not V7 | Cap 40 |
+| G4 | Template is not V7: judged from the column names only (fields 140-148 are V7, 150/151 and the renamed 62/148 are V8); the field-1000 label is ignored | Cap 40 |
 | G5 | More than 20% of mandatory columns missing | Cap 49 |
 | G6 | A critical check failed | Cap 94, so Accept is out of reach |
 | G7 | More than one TPT table in the workbook (another sheet, or a second header block after a gap on the same sheet) | Cap 40, so Reject |
@@ -297,7 +297,8 @@ tpt_score/
   config.py             configuration and its defaults
   rules.py              field definitions read from the V7 workbook
   loader.py             finds the table, drops non-position rows
-  mapper.py             columns to field numbers, version detection
+  mapper.py             columns to field numbers
+  versions.py           V6 / V7 / V8 from the column names (field 1000 is not used)
   util.py               value parsing, check digits, reference lists
   scorer.py             weights, floors, gates, bands
   remarks.py            plain-language remarks and the gate reference table

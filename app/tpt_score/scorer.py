@@ -10,7 +10,8 @@ from typing import Any, Dict, List, Optional
 from .checks import Context, run_all
 from .config import Config
 from .loader import UnreadableFile, load_table
-from .mapper import detect_version, map_columns
+from .mapper import map_columns
+from .versions import detect_version
 from .profile import profile_columns
 from .remarks import FINDING_LABELS, column_findings, key_field_items
 
@@ -180,7 +181,7 @@ def score_file(path: str, fields, cfg: Config) -> FileScore:
         return _zero(path, cfg, str(exc), 'G1')
 
     cmap = map_columns(table.header, fields)
-    version = detect_version(table.header, table.rows, cmap, fields)
+    version = detect_version(table.header, fields, cmap)
 
     fs_kw = _column_findings(cmap, fields)
     fs_kw.update(sheet=table.sheet, positions=len(table.rows),
