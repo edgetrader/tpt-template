@@ -152,10 +152,13 @@ def detect_version(header: List[Any], rows, cmap: ColumnMap, fields: FieldSet) -
                 break
 
     mapped = set(cmap.mapped_tokens)
+    # Fields 140-148 were added in V7 (absent from the V6 workbook of 14 Mar 2022).
     v7_only = {t for t in ('140', '141', '142', '143', '144', '145', '146', '147', '148') if t in fields}
     has_v7 = bool(v7_only & mapped)
-    # Fields introduced after V7; present only in a newer template.
-    has_newer = bool({'150', '151', '152', '153'} & mapped)
+    # Fields 150 and 151 exist only in V8 (post-consultation workbook, 8 Oct 2026). They are
+    # not V7 fields, so they never appear among the mapped columns: read the raw headers.
+    raw = {token_of(h) for h in header if h is not None}
+    has_newer = bool({'150', '151'} & raw)
 
     m = re.search(r'v\s*([0-9]+)', stated, re.I)
     if m:

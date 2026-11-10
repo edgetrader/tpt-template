@@ -1393,5 +1393,29 @@ class TestKeyFields(unittest.TestCase):
             os.path.join(self.dir, 'some.xlsx'), fields(), _CFG)))
 
 
+class TestVersionDetection(unittest.TestCase):
+    """V6 / V7 / V8 from the field-1000 label, checked against the columns present."""
+
+    def _detect(self, drop=(), add=(), label='V7.0'):
+        from tpt_score.mapper import detect_version, map_columns
+        head = [f.name for f in fields().fields if f.token not in drop] + list(add)
+        row = [None] * len(head)
+        if label is not None and '1000_TPT_Version' in head:
+            row[head.index('1000_TPT_Version')] = label
+        return detect_version(head, [row], map_columns(head, fields()), fields())
+
+    def test_versions(self):
+        v7_added = [str(n) for n in range(140, 149)]
+        self.assertEqual(self._detect(), 'V7')
+        self.assertEqual(self._detect(label=None), 'V7')
+        # V6 layout: no fields 140-148, whatever the label claims
+        self.assertEqual(self._detect(drop=v7_added), 'V6')
+        self.assertEqual(self._detect(drop=v7_added, label=None), 'V6')
+        # V8 layout: fields 150 and 151 present, even when labelled V7
+        v8 = ('150_LTEI_Fund_Eligibility', '151_Legislative_program_investment')
+        self.assertEqual(self._detect(add=v8), 'V8')
+        self.assertEqual(self._detect(label='V8.0'), 'V8')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
